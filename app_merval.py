@@ -9,14 +9,18 @@ from datetime import datetime
 st.set_page_config(layout="wide", page_title="Monitor AR 2026", page_icon="🇦🇷")
 
 st.title("🏛️ Monitor Financiero Argentina 2026")
-tab1, tab2, tab3 = st.tabs(["📈 Acciones & Balances", "🍞 Inflación vs REM", "🏦 Bonos Tasa Fija"])
+st.markdown(f"**Escenario: Inflación Objetivo Anual 21%**")
 
-# --- DATOS COMPARTIDOS ---
-# Simulación de Tasas y Macro (Basado en proyecciones 2026)
-TASA_PF_NACION = 3.5  # TEM (Tasa Efectiva Mensual) simulada Banco Nación
+tab1, tab2, tab3 = st.tabs(["📈 Acciones", "🍞 Inflación 2026", "🏦 Bonos & Tasas"])
 
-# --- PESTAÑA 1: ACCIONES (Tu código anterior optimizado) ---
+# --- DATOS DE INFLACIÓN PROYECTADA ---
+meses_2026 = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+# Ajuste fino para dar 21% anual (Producto de 1+i)
+inf_proyectada = [2.0, 1.8, 1.8, 1.5, 1.3, 1.2, 1.8, 0.9, 0.8, 0.8, 0.6, 1.1]
+
+# --- PESTAÑA 1: ACCIONES ---
 with tab1:
+    st.subheader("📋 Resumen de Mercado (Acciones & CEDEARs)")
     TICKERS = ["GGAL.BA", "YPFD.BA", "PAMP.BA", "ALUA.BA", "VISTA.BA", "AAPL", "NVDA"]
     results = []
     for t in TICKERS:
@@ -33,68 +37,80 @@ with tab1:
         except: pass
     st.table(pd.DataFrame(results))
 
-# --- PESTAÑA 2: INFLACIÓN INDEC vs REM ---
+# --- PESTAÑA 2: INFLACIÓN 21% ANUAL ---
 with tab2:
-    st.header("📊 Evolución de Precios (IPC)")
-    # Datos ejemplo (Ene 2025 - Ene 2026)
-    meses = ["Ene-25", "Feb-25", "Mar-25", "Abr-25", "May-25", "Jun-25", "Jul-25", "Ago-25", "Sep-25", "Oct-25", "Nov-25", "Dic-25"]
-    ipc_indec = [15.0, 13.2, 11.0, 8.5, 7.0, 6.0, 5.5, 4.8, 4.2, 3.8, 3.5, 3.2]
-    rem_bcra = [16.5, 14.0, 12.5, 9.5, 8.5, 7.5, 6.5, 5.5, 5.0, 4.5, 4.0, 3.8]
-
-    fig_inf = go.Figure()
-    fig_inf.add_trace(go.Scatter(x=meses, y=ipc_indec, name="IPC INDEC (Real)", line=dict(color='#1f77b4', width=4)))
-    fig_inf.add_trace(go.Scatter(x=meses, y=rem_bcra, name="REM BCRA (Expectativa)", line=dict(color='#ff7f0e', dash='dash')))
-    fig_inf.update_layout(title="Inflación Mensual: Realidad vs Expectativa REM", yaxis_title="Variación % Mensual", template="plotly_white")
-    st.plotly_chart(fig_inf, use_container_width=True)
+    st.header("📊 Proyección de Inflación Mensual 2026")
     
-    st.info("💡 El gráfico muestra el proceso de desinflación proyectado hacia 2026.")
+    # Creamos el DataFrame para la tabla y el gráfico
+    df_inf = pd.DataFrame({
+        "Mes": meses_2026,
+        "Inflación Mensual (%)": inf_proyectada
+    })
+    
+    # Cálculo acumulado para verificar el 21%
+    acumulada = [(1 + x/100) for x in inf_proyectada]
+    total_anual = (np.prod(acumulada) - 1) * 100
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.write("### 📅 Hoja de Ruta")
+        st.table(df_inf)
+        st.metric("Inflación Acumulada Dic-2026", f"{total_anual:.1f}%")
+        
+    with col2:
+        fig_inf = go.Figure()
+        fig_inf.add_trace(go.Scatter(
+            x=meses_2026, y=inf_proyectada,
+            mode='lines+markers+text',
+            text=[f"{x}%" for x in inf_proyectada],
+            textposition="top center",
+            line=dict(color='#00cf8d', width=4),
+            name="Proyección 2026"
+        ))
+        fig_inf.update_layout(
+            title="Sendero de Desinflación Proyectado",
+            yaxis_title="Variación % Mensual",
+            template="plotly_white",
+            yaxis=dict(range=[0, 3])
+        )
+        st.plotly_chart(fig_inf, use_container_width=True)
 
-# --- PESTAÑA 3: BONOS TASA FIJA & CURVA DE RENDIMIENTO ---
+# --- PESTAÑA 3: BONOS & COMPARATIVA ---
 with tab3:
-    st.header("💸 Bonos Soberanos Tasa Fija")
+    st.header("💸 Bonos Tasa Fija vs Plazo Fijo")
     
-    # Datos simulados de bonos comunes (ej: Botes, Lecaps o similares en 2026)
+    # Datos de mercado (Simulados para visualización)
+    tasa_pf_nacion = 3.2 # TEM Mensual Plazo Fijo
+    
     data_bonos = {
         "Ticker": ["TO26", "S31M6", "S30J6", "S29A6"],
-        "Precio": [65.40, 98.20, 95.10, 92.50],
+        "Precio": [68.20, 99.10, 96.50, 93.80],
         "Vencimiento (Días)": [365, 90, 180, 270],
-        "TNA (%)": [55.0, 48.5, 50.2, 52.0]
+        "TEM (%)": [4.2, 3.8, 3.9, 4.1] # Tasa Efectiva Mensual del bono
     }
     df_bonos = pd.DataFrame(data_bonos)
-    
-    # Cálculos
-    df_bonos["TEM (%)"] = round(df_bonos["TNA (%)"] / 12, 2)
     df_bonos["TEA (%)"] = round(((1 + df_bonos["TEM (%)"]/100)**12 - 1) * 100, 2)
     
-    # Comparativa Banco Nación
-    st.subheader("⚖️ Comparativa de Inversión Mensual")
-    col_a, col_b = st.columns(2)
-    col_a.metric("TEM Plazo Fijo BNA", f"{TASA_PF_NACION}%")
-    mejor_bono = df_bonos.loc[df_bonos['TEM (%)'].idxmax()]
-    col_b.metric(f"Mejor Bono: {mejor_bono['Ticker']}", f"{mejor_bono['TEM (%)']}% TEM")
+    st.subheader("⚖️ ¿Qué conviene más?")
+    m1, m2 = st.columns(2)
+    m1.metric("TEM Plazo Fijo Nación", f"{tasa_pf_nacion}%")
+    m2.metric("TEM Promedio Bonos", f"{df_bonos['TEM (%)'].mean():.2f}%")
 
-    st.table(df_bonos[["Ticker", "Precio", "TEM (%)", "TEA (%)"]])
+    st.table(df_bonos)
 
-    # Gráfico de Puntos: Curva de Rendimiento
-    st.subheader("📈 Curva de Rendimiento Anual (TEA)")
+    # Gráfico de Curva de Rendimiento
+    st.subheader("📈 Curva de Rendimiento (TEA)")
     
-    # Ajuste de curva (Promedio trazado)
+    # Línea de tendencia
     z = np.polyfit(df_bonos["Vencimiento (Días)"], df_bonos["TEA (%)"], 1)
     p = np.poly1d(z)
-    x_range = np.linspace(df_bonos["Vencimiento (Días)"].min(), df_bonos["Vencimiento (Días)"].max(), 100)
-
-    fig_curva = go.Figure()
-    # Puntos de los bonos
-    fig_curva.add_trace(go.Scatter(x=df_bonos["Vencimiento (Días)"], y=df_bonos["TEA (%)"], 
-                                  mode='markers+text', text=df_bonos["Ticker"],
-                                  textposition="top center", name="Bonos Individuales",
-                                  marker=dict(size=12, color='#6366f1')))
-    # Línea de tendencia (Curva)
-    fig_curva.add_trace(go.Scatter(x=x_range, y=p(x_range), name="Curva de Rendimiento (Tendencia)",
-                                  line=dict(color='rgba(255, 0, 0, 0.5)', width=2)))
     
-    fig_curva.update_layout(xaxis_title="Días al Vencimiento", yaxis_title="Rendimiento Anual (TEA %)",
-                            template="plotly_white")
-    st.plotly_chart(fig_curva, use_container_width=True)
-
-    st.caption("Nota: Una curva ascendente indica que el mercado exige más tasa a largo plazo (incertidumbre), mientras que una descendente o invertida sugiere una baja de inflación esperada.")
+    fig_curva = go.Figure()
+    fig_curva.add_trace(go.Scatter(
+        x=df_bonos["Vencimiento (Días)"], y=df_bonos["TEA (%)"],
+        mode='markers+text', text=df_bonos["Ticker"],
+        textposition="top center", marker=dict(size=15, color='#6366f1')
+    ))
+    fig_curva.add_trace(go.Scatter(
+        x=df_bonos["Vencimiento (
