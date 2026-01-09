@@ -4,79 +4,115 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # 1. Configuración de página
-st.set_page_config(layout="wide", page_title="Monitor PRO 2026", page_icon="📈")
+st.set_page_config(layout="wide", page_title="Monitor Alpha 2026", page_icon="📈")
 
-st.title("🏛️ Monitor Alpha 2026 (Powered by TradingView)")
+st.title("🏛️ Monitor Alpha 2026 (Real-Time & BYMA)")
 
-tab1, tab2, tab3 = st.tabs(["📊 Análisis en Vivo", "🍞 Inflación 2026", "🏦 Tasas & Bonos"])
+# Definición de pestañas
+tab1, tab2, tab3 = st.tabs(["📊 Acciones (Live)", "🍞 Inflación 2026", "🏦 Tasas & Bonos"])
 
+# --- PESTAÑA 1: ACCIONES CON TODAS LAS EMPRESAS ---
 with tab1:
-    col_selector, col_gauge = st.columns([1, 1])
+    st.subheader("🔎 Análisis Técnico y Fundamental")
     
-    with col_selector:
-        ticker_tv = st.selectbox("Seleccioná un Activo para ver en Vivo:", 
-                                ["BCBA:GGAL", "BCBA:YPFD", "BCBA:PAMP", "NASDAQ:AAPL", "NASDAQ:NVDA", "NYSE:VISTA"])
+    # Lista completa solicitada
+    empresas = {
+        "BCBA:GGAL": "Galicia", "BCBA:YPFD": "YPF", "BCBA:PAMP": "Pampa Energía",
+        "BCBA:ALUA": "Aluar", "BCBA:BMA": "Banco Macro", "BCBA:BBAR": "BBVA Francés",
+        "BCBA:CEPU": "Central Puerto", "BCBA:EDN": "Edenor", "BCBA:LOMA": "Loma Negra",
+        "BCBA:TXAR": "Ternium Arg", "BCBA:TGSU2": "TGS", "BCBA:BYMA": "BYMA", 
+        "NYSE:VISTA": "Vista Energy", "NYSE:CVX": "Chevron", "NYSE:OXY": "Occidental",
+        "NASDAQ:AAPL": "Apple", "NASDAQ:NVDA": "Nvidia", "NASDAQ:MSFT": "Microsoft",
+        "NASDAQ:TSLA": "Tesla", "NASDAQ:GOOGL": "Google"
+    }
     
-    # --- WIDGET DE TRADINGVIEW (ANALISIS TECNICO) ---
-    with col_gauge:
-        # Este componente embebe el reloj de TradingView
-        tv_gauge_html = f"""
+    col_sel, col_val = st.columns([1, 2])
+    
+    with col_sel:
+        ticker_sel = st.selectbox("Seleccioná un activo:", list(empresas.keys()))
+        
+        # Widget de Análisis Técnico (Gauge)
+        tv_gauge = f"""
         <div class="tradingview-widget-container">
-          <div class="tradingview-widget-container__widget"></div>
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
           {{
-          "interval": "1D",
-          "width": "100%",
-          "isTransparent": false,
-          "height": 380,
-          "symbol": "{ticker_tv}",
-          "showIntervalTabs": true,
-          "displayMode": "single",
-          "locale": "es",
-          "colorTheme": "light"
-        }}
+            "interval": "1D", "width": "100%", "height": 350,
+            "symbol": "{ticker_sel}", "showIntervalTabs": true,
+            "displayMode": "single", "locale": "es", "colorTheme": "light"
+          }}
           </script>
-        </div>
-        """
-        components.html(tv_gauge_html, height=400)
+        </div>"""
+        components.html(tv_gauge, height=360)
 
-    st.markdown("---")
-    
-    # --- TABLA DE FUNDAMENTALES (CARGA DESDE TU CSV/GOOGLE SHEETS) ---
-    st.subheader("📋 Datos Fundamentales (PER, FCF, Intrínseco)")
-    
-    # Datos que podés alimentar desde tu Google Sheets
-    data = {
-        "Ticker": ["GGAL", "YPFD", "PAMP", "AAPL", "NVDA", "VISTA"],
-        "PER": [6.2, 5.8, 8.1, 28.4, 35.2, 7.5],
-        "FCF (M)": ["120M", "850M", "45M", "95B", "27B", "310M"],
-        "Valor Intrínseco": [6200, 38000, 3100, 170.0, 750.0, 65.0],
-        "Estado": ["✅ BARATA", "✅ BARATA", "✅ BARATA", "❌ CARA", "✅ BARATA", "✅ BARATA"]
-    }
-    df = pd.DataFrame(data)
-    st.dataframe(df.style.applymap(lambda x: 'color: green' if x == "✅ BARATA" else 'color: red', subset=['Estado']), 
-                 use_container_width=True, hide_index=True)
+    with col_val:
+        # Tabla Fundamental (Alimentar con datos reales o CSV)
+        st.write(f"### Valuación: {empresas[ticker_sel]}")
+        # Aquí simulamos los datos de PER/FCF/Intrínseco para la empresa elegida
+        # En una versión avanzada, estos datos pueden venir de tu Google Sheets
+        df_fund = pd.DataFrame({
+            "Métrica": ["PER Estimado", "Free Cash Flow", "Valor Intrínseco", "Estado"],
+            "Valor": ["12.5x", "Sólido", "A definir", "✅ BARATA"]
+        })
+        st.table(df_fund)
+        
+        # Mini gráfico interactivo
+        tv_chart = f"""
+        <div class="tradingview-widget-container">
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+          <script type="text/javascript">
+          new TradingView.MediumWidget({{
+            "symbols": [["{ticker_sel}"]], "chartOnly": false, "width": "100%",
+            "height": 250, "locale": "es", "colorTheme": "light", "gridLineColor": "rgba(240, 243, 250, 0)"
+          }});
+          </script>
+        </div>"""
+        components.html(tv_chart, height=260)
 
-# --- PESTAÑA INFLACIÓN (TRANSICIÓN 2025-2026) ---
+# --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
-    st.header("📉 Trayectoria de Inflación 2025-2026")
+    st.header("📉 Desinflación 2025-2026")
     m_25 = ["Ene-25", "Feb-25", "Mar-25", "Abr-25", "May-25", "Jun-25", "Jul-25", "Ago-25", "Sep-25", "Oct-25", "Nov-25", "Dic-25"]
     v_25 = [20.6, 13.2, 11.0, 8.8, 4.2, 4.6, 4.0, 4.2, 3.5, 2.7, 2.5, 2.3]
     m_26 = ["Ene-26", "Feb-26", "Mar-26", "Abr-26", "May-26", "Jun-26", "Jul-26", "Ago-26", "Sep-26", "Oct-26", "Nov-26", "Dic-26"]
     v_26 = [2.0, 1.8, 1.8, 1.5, 1.3, 1.2, 1.8, 0.9, 0.8, 0.8, 0.6, 1.1]
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=m_25, y=v_25, name="INDEC (Sólida)", line=dict(color='#1f77b4', width=4)))
+    fig.add_trace(go.Scatter(x=m_25, y=v_25, name="INDEC 2025 (Real)", line=dict(color='blue', width=4)))
     fig.add_trace(go.Scatter(x=[m_25[-1]] + m_26, y=[v_25[-1]] + v_26, 
-                             name="Proy. 2026 (Punteada)", line=dict(color='#d62728', width=3, dash='dash')))
+                             name="Proyección 2026 (Meta 21%)", line=dict(color='red', width=3, dash='dash')))
     fig.update_layout(template="plotly_white", yaxis_title="Inflación %")
     st.plotly_chart(fig, use_container_width=True)
 
-# --- PESTAÑA TASAS ---
+# --- PESTAÑA 3: TASAS Y BONOS (BYMA INTEGRADO) ---
 with tab3:
-    st.metric("Tasa Plazo Fijo BNA (Mensual)", "3.20%")
-    st.table(pd.DataFrame({
-        "Ticker": ["S31M6", "S30J6", "S29A6", "TO26"],
-        "TEM %": [3.80, 3.92, 4.10, 4.50],
-        "TEA %": [56.4, 58.7, 61.9, 69.6]
-    }))
+    st.subheader("🏦 Mercado de Deuda y Tasas BNA")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.metric("Tasa Plazo Fijo BNA (Mensual)", "3.20%")
+        # Cuadro de LECAPS
+        df_lecaps = pd.DataFrame({
+            "Ticker": ["S31M6", "S30J6", "S29A6", "TO26"],
+            "Vencimiento": ["Mar-26", "Jun-26", "Ago-26", "Oct-26"],
+            "TEM %": [3.80, 3.92, 4.10, 4.50]
+        })
+        st.write("**Panel de Lecaps / Boncaps**")
+        st.table(df_lecaps)
+        
+    with c2:
+        # Widget de TradingView para Bonos (Riesgo País o Bonos Globales)
+        st.write("### Curva de Bonos (BYMA/MAE)")
+        tv_bonos = """
+        <div class="tradingview-widget-container">
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js" async>
+          {
+            "colorTheme": "light", "dateRange": "12M", "showChart": true, "width": "100%",
+            "height": 400, "largeChartHeight": 300, "plotLineColorGrowing": "rgba(41, 98, 255, 1)",
+            "symbols": [
+              { "proName": "BCBA:AL30", "title": "Bono AL30" },
+              { "proName": "BCBA:GD30", "title": "Bono GD30" }
+            ]
+          }
+          </script>
+        </div>"""
+        components.html(tv_bonos, height=420)
