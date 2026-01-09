@@ -4,10 +4,10 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime
 
-# Configuración de la página
+# Configuración de la página - Debe ser la primera instrucción de Streamlit
 st.set_page_config(layout="wide", page_title="Merval Alpha 2026", page_icon="🇦🇷")
 
-st.title("📊 Monitor Merval: Estrategia Híbrida")
+st.title("📊 Monitor Merval: Estrategia Híbrida (AT + AF)")
 st.markdown("---")
 
 # Lista de Tickers
@@ -16,7 +16,7 @@ TICKERS = ["GGAL.BA", "YPFD.BA", "PAMP.BA", "ALUA.BA", "CEPU.BA", "EDN.BA", "TXA
 
 @st.cache_data(ttl=300)
 def fetch_basic_data(ticker):
-    """Esta función solo guarda datos simples (números y texto), así no da error de caché."""
+    """Función para obtener datos simples compatibles con caché"""
     try:
         stock = yf.Ticker(ticker)
         hist = stock.history(period="1y")
@@ -30,6 +30,7 @@ def fetch_basic_data(ticker):
         shares = info.get('sharesOutstanding', 1)
         book_value = info.get('bookValue', 0)
         
+        # Valuación Optimista (FCF * 18 o Valor Libros)
         intrinsic = max((fcf / shares) * 18 if fcf > 0 else 0, book_value)
         
         return {
@@ -44,45 +45,79 @@ def fetch_basic_data(ticker):
     except:
         return None
 
-# Sidebar
-st.sidebar.header("Opciones")
-if st.sidebar.button("🔄 Refrescar Mercado"):
+# Panel Lateral
+st.sidebar.header("⚙️ Opciones")
+if st.sidebar.button("🔄 Refrescar Mercado", key="refresh_btn"):
     st.cache_data.clear()
     st.rerun()
 
-# Procesamiento de la tabla
+# Procesamiento de datos
 results = []
 with st.spinner('Actualizando precios y balances...'):
     for t in TICKERS:
         res = fetch_basic_data(t)
         if res: results.append(res)
 
-df = pd.DataFrame(results)
+if results:
+    df = pd.DataFrame(results)
 
-# Tabla Principal
-def style_df(v):
-    if v in ["Barata", "ALCISTA"]: return 'background-color: #d4edda; color: #155724'
-    if v in ["Cara", "BAJISTA"]: return 'background-color: #f8d7da; color: #721c24'
-    return 'background-color: #fff3cd; color: #856404'
+    # Tabla Principal con estilo
+    def style_df(v):
+        if v in ["Barata", "ALCISTA"]: return 'background-color: #d4edda; color: #155724'
+        if v in ["Cara", "BAJISTA"]: return 'background-color: #f8d7da; color: #721c24'
+        return 'background-color: #fff3cd; color: #856404'
 
-st.subheader("Cuadro de Mando (AT + AF)")
-st.dataframe(df.style.applymap(style_df, subset=['Tendencia', 'Valuación']), use_container_width=True)
-
-# Sección de Gráficos (Aquí descargamos el balance solo de la que selecciones)
-st.divider()
-selected_t = st.selectbox("Selecciona empresa para ver balances trimestrales (3 años):", df['Ticker'].tolist())
-
-if selected_t:
-    st.write(f"### Detalle de Balances: {selected_t}")
-    # Descargamos el objeto de balance solo al hacer click (para no romper la caché anterior)
-    s_obj = yf.Ticker(selected_t)
-    b = s_obj.quarterly_financials.T
+    st.subheader("📋 Cuadro de Mando (Tendencia + Valuación)")
     
-    if not b.empty and 'Total Revenue' in b.columns:
-        fig = go.Figure()
-        fig.add_trace(go.Bar(x=b.index, y=b['Total Revenue'], name='Ingresos', marker_color='#1E293B'))
-        fig.add_trace(go.Bar(x=b.index, y=b['Net Income'], name='Ganancia Neta', marker_color='#6366f1'))
-        fig.update_layout(barmode='group', height=450, margin=dict(l=20, r=20, t=30, b=20))
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No hay datos de balance trimestral disponibles para este Ticker en este momento.")
+    with st.container():
+        st.dataframe(
+            df.style.applymap(style_df, subset=['Tendencia', 'Valuación']),
+            use_container_width=True,
+            key="main_table" # Clave fija para evitar errores de renderizado
+        )
+
+    # Sección de Gráficos
+    st.divider()
+    
+    col_sel, col_empty = st.columns([1, 2])
+    with col_sel:
+        selected_t = st.selectbox(
+            "Selecciona empresa para ver balances:", 
+            df['Ticker'].tolist(),
+            key="ticker_selector"
+        )
+
+    if selected_t:
+        with st.container():
+            st.write(f"### 📈 Análisis de Balances: {selected_t}")
+            # Descarga de balance bajo demanda
+            s_obj = yf.Ticker(selected_t)
+            b = s_obj.quarterly_financials.T
+            
+            if not b.empty and 'Total Revenue' in b.columns:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(
+                    x=b.index, 
+                    y=b['Total Revenue'], 
+                    name='Ingresos', 
+                    marker_color='#1E293B'
+                ))
+                fig.add_trace(go.Bar(
+                    x=b.index, 
+                    y=b['Net Income'], 
+                    name='Ganancia Neta', 
+                    marker_color='#6366f1'
+                ))
+                
+                fig.update_layout(
+                    barmode='group', 
+                    height=450, 
+                    margin=dict(l=20, r=20, t=30, b=20),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                # 'theme=None' ayuda a evitar errores de nodos en Streamlit Cloud
+                st.plotly_chart(fig, use_container_width=True, theme=None, key=f"chart_{selected_t}")
+            else:
+                st.info(f"No hay suficientes datos de balance trimestral para {selected_t}.")
+else:
+    st.error("No se pudieron obtener datos del mercado. Intenta refrescar la página.")
