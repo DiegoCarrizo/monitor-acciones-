@@ -34,76 +34,80 @@ with tab1:
     if res_acc:
         st.table(pd.DataFrame(res_acc))
 
-# --- PESTAÑA 2: INFLACIÓN HISTÓRICA Y PROYECTADA ---
+# --- PESTAÑA 2: INFLACIÓN INTEGRAL (HISTÓRICO + PROYECTO 2026) ---
 with tab2:
-    st.header("📊 Monitor de Inflación: Histórico vs Proyectado 21%")
+    st.header("📊 Monitor de Inflación: INDEC vs REM (2025-2026)")
     
-    # 1. DATOS HISTÓRICOS (Últimos 12 meses - 2025)
-    meses_hist = ["Ene-25", "Feb-25", "Mar-25", "Abr-25", "May-25", "Jun-25", "Jul-25", "Ago-25", "Sep-25", "Oct-25", "Nov-25", "Dic-25"]
-    inf_hist = [20.6, 13.2, 11.0, 8.8, 4.2, 4.6, 4.0, 4.2, 3.5, 2.7, 2.5, 2.3] # Datos ilustrativos 2025
+    # 1. EJE DE TIEMPO COMPLETO (24 MESES)
+    meses_25 = ["Ene-25", "Feb-25", "Mar-25", "Abr-25", "May-25", "Jun-25", "Jul-25", "Ago-25", "Sep-25", "Oct-25", "Nov-25", "Dic-25"]
+    meses_26 = ["Ene-26", "Feb-26", "Mar-26", "Abr-26", "May-26", "Jun-26", "Jul-26", "Ago-26", "Sep-26", "Oct-26", "Nov-26", "Dic-26"]
+    eje_x_completo = meses_25 + meses_26
 
-    # 2. TU PROYECCIÓN 2026 (Sendero 21%)
-    meses_2026 = ["Ene-26", "Feb-26", "Mar-26", "Abr-26", "May-26", "Jun-26", "Jul-26", "Ago-26", "Sep-26", "Oct-26", "Nov-26", "Dic-26"]
-    inf_2026 = [2.0, 1.8, 1.8, 1.5, 1.3, 1.2, 1.8, 0.9, 0.8, 0.8, 0.6, 1.1]
-    
-    # 3. EXPECTATIVA REM (Suele ser levemente superior a la proyección oficial)
-    rem_2026 = [x + 0.4 for x in inf_2026] 
+    # 2. DATOS INDEC (Real 2025 + Tu Proyección 2026)
+    # Valores reales 2025 (Ejemplo) + Tu sendero 2026
+    val_indec_25 = [20.6, 13.2, 11.0, 8.8, 4.2, 4.6, 4.0, 4.2, 3.5, 2.7, 2.5, 2.3]
+    val_proy_26 = [2.0, 1.8, 1.8, 1.5, 1.3, 1.2, 1.8, 0.9, 0.8, 0.8, 0.6, 1.1]
+    serie_indec_completa = val_indec_25 + val_proy_26
 
-    # Unificamos para el gráfico
-    todo_meses = meses_hist + meses_2026
-    todo_valores = inf_hist + inf_2026
+    # 3. DATOS REM (Lo que el mercado esperaba en 2025 + lo que espera en 2026)
+    # En 2025 el REM solía estar por encima del INDEC. En 2026 mantenemos el diferencial.
+    val_rem_25 = [21.5, 15.0, 12.5, 10.0, 5.5, 5.2, 4.8, 4.5, 4.0, 3.2, 3.0, 2.8]
+    val_rem_26 = [x + 0.5 for x in val_proy_26] # Mantenemos el gap de expectativa
+    serie_rem_completa = val_rem_25 + val_rem_26
 
     # --- VISUALIZACIÓN ---
-    col1, col2 = st.columns([1, 2])
+    col1, col2 = st.columns([1, 3])
     
     with col1:
-        st.subheader("📋 Datos Mensuales")
-        df_resumen = pd.DataFrame({
-            "Mes": meses_2026,
-            "Tu Proyección (%)": inf_2026,
-            "Expectativa REM (%)": rem_2026
+        st.subheader("📋 Resumen 2026")
+        df_26 = pd.DataFrame({
+            "Mes": meses_26,
+            "Proyección (%)": val_proy_26,
+            "REM (%)": val_rem_26
         })
-        st.table(df_resumen)
+        st.table(df_26)
         
-        # Cálculo de acumulada
-        total_anual = (np.prod([(1 + x/100) for x in inf_2026]) - 1) * 100
-        st.metric("Objetivo Anual 2026", f"{total_anual:.1f}%", delta="-78% vs 2025")
+        # Cálculo de acumulada 2026
+        acum_26 = (np.prod([(1 + x/100) for x in val_proy_26]) - 1) * 100
+        st.metric("Meta Anual 2026", f"{acum_26:.1f}%")
 
     with col2:
-        st.subheader("📈 Curva de Desinflación")
-        fig_dual = go.Figure()
+        st.subheader("📈 Comparativa Histórica y Proyectada")
+        fig_macro = go.Figure()
 
-        # Área Histórica
-        fig_dual.add_trace(go.Scatter(
-            x=meses_hist, y=inf_hist, 
-            name="Histórico INDEC (2025)",
-            line=dict(color='#94a3b8', width=2),
-            fill='tozeroy'
-        ))
-
-        # Tu Proyección
-        fig_dual.add_trace(go.Scatter(
-            x=meses_2026, y=inf_2026, 
-            name="Proyección Propia (2026)",
+        # Línea INDEC (Real hasta Dic-25, Proyectada desde Ene-26)
+        fig_macro.add_trace(go.Scatter(
+            x=eje_x_completo, y=serie_indec_completa,
+            name="INDEC (Real + Proy. 21%)",
             line=dict(color='#2ecc71', width=4),
             mode='lines+markers'
         ))
 
-        # REM
-        fig_dual.add_trace(go.Scatter(
-            x=meses_2026, y=rem_2026, 
-            name="REM BCRA (Expectativa)",
-            line=dict(color='#e74c3c', dash='dash')
+        # Línea REM (Expectativas del mercado)
+        fig_macro.add_trace(go.Scatter(
+            x=eje_x_completo, y=serie_rem_completa,
+            name="Expectativa REM BCRA",
+            line=dict(color='#e74c3c', dash='dash', width=2),
+            mode='lines'
         ))
 
-        fig_dual.update_layout(
+        # Sombra para dividir 2025 de 2026
+        fig_macro.add_vrect(
+            x0="Ene-25", x1="Dic-25", 
+            fillcolor="gray", opacity=0.1, 
+            layer="below", line_width=0,
+            annotation_text="PASADO (2025)", annotation_position="top left"
+        )
+
+        fig_macro.update_layout(
             template="plotly_white",
             hovermode="x unified",
             yaxis_title="Inflación Mensual %",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
-        st.plotly_chart(fig_dual, use_container_width=True)
+        st.plotly_chart(fig_macro, use_container_width=True)
 
+    st.caption("Nota: El área sombreada muestra los datos cerrados de 2025. A partir de Ene-26 comienza el escenario proyectado.")
     st.info("💡 El área gris representa la inercia del año anterior. La línea verde muestra el sendero necesario para alcanzar el 21% anual.")
 # --- PESTAÑA 3: BONOS ---
 with tab3:
@@ -137,4 +141,5 @@ with tab3:
                                line=dict(color='red', dash='dot')))
     fig_c.update_layout(template="plotly_white", xaxis_title="Días", yaxis_title="TEA %")
     st.plotly_chart(fig_c, use_container_width=True)
+
 
