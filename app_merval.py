@@ -17,22 +17,60 @@ tab1, tab2, tab3 = st.tabs(["📈 Acciones", "🍞 Inflación 2026", "🏦 Bonos
 meses_2026 = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 inf_proyectada = [2.0, 1.8, 1.8, 1.5, 1.3, 1.2, 1.8, 0.9, 0.8, 0.8, 0.6, 1.1]
 
-# --- PESTAÑA 1: ACCIONES ---
+# --- PESTAÑA 1: ACCIONES (PANEL LÍDER + USA) ---
 with tab1:
-    st.subheader("📋 Resumen de Mercado")
-    TICKERS = ["GGAL.BA", "YPFD.BA", "PAMP.BA", "ALUA.BA", "VISTA.BA", "AAPL", "NVDA"]
-    res_acc = []
-    for t in TICKERS:
-        try:
-            s = yf.Ticker(t)
-            h = s.history(period="1y")
-            if not h.empty:
-                c = h['Close'].iloc[-1]
-                m = h['Close'].rolling(200).mean().iloc[-1]
-                res_acc.append({"Ticker": t, "Precio": round(c, 2), "Tendencia": "🟢 ALCISTA" if c > m else "🔴 BAJISTA"})
-        except: pass
-    if res_acc:
-        st.table(pd.DataFrame(res_acc))
+    st.subheader("📊 Panel Líder Argentina & Gigantes de EEUU")
+    
+    # Definición de Tickers
+    # Panel Líder BYMA (Principales acciones argentinas)
+    panel_lider = [
+        "ALUA.BA", "BBAR.BA", "BMA.BA", "BYMA.BA", "CEPU.BA", "COME.BA", 
+        "EDN.BA", "GGAL.BA", "LOMA.BA", "METR.BA", "PAMP.BA", "SUPV.BA", 
+        "TECO2.BA", "TGNO4.BA", "TGSU2.BA", "TRAN.BA", "TXAR.BA", "VALO.BA", "YPFD.BA"
+    ]
+    
+    # Las 7 Magníficas + Petroleras pedidas
+    usa_y_petroleras = [
+        "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", # Las 7 Magníficas
+        "VISTA", "CVX", "OXY" # Petroleras: Vista, Chevron, Occidental
+    ]
+    
+    TICKERS_TOTAL = panel_lider + usa_y_petroleras
+    
+    # Función para descargar datos en lote (más rápido)
+    @st.cache_data(ttl=3600)
+    def obtener_datos_mercado(lista_tickers):
+        data_list = []
+        for t in lista_tickers:
+            try:
+                stock = yf.Ticker(t)
+                # Bajamos 1.5 años para asegurar el cálculo de la media de 200
+                hist = stock.history(period="1.5y")
+                if not hist.empty:
+                    ult_precio = hist['Close'].iloc[-1]
+                    sma200 = hist['Close'].rolling(window=200).mean().iloc[-1]
+                    
+                    # Limpiamos el nombre para mostrarlo mejor
+                    nombre_corto = t.replace(".BA", " (AR)") if ".BA" in t else t + " (US)"
+                    
+                    data_list.append({
+                        "Activo": nombre_corto,
+                        "Precio": round(ult_precio, 2),
+                        "Media 200d": round(sma200, 2) if not np.isnan(sma200) else "N/A",
+                        "Tendencia": "🟢 ALCISTA" if ult_precio > sma200 else "🔴 BAJISTA"
+                    })
+            except Exception as e:
+                continue
+        return pd.DataFrame(data_list)
+
+    with st.spinner('Actualizando cotizaciones de BYMA y Wall Street...'):
+        df_mercado = obtener_datos_mercado(TICKERS_TOTAL)
+
+    if not df_mercado.empty:
+        # Buscador simple
+        busqueda = st.text_input("🔍 Buscar acción (ej: GGAL, VISTA, NVDA):")
+        if busqueda:
+            df_mercado = df_mercado[df_mercado
 
 # --- PESTAÑA 2: INFLACIÓN INTEGRAL (HISTÓRICO + PROYECTO 2026) ---
 with tab2:
@@ -141,5 +179,6 @@ with tab3:
                                line=dict(color='red', dash='dot')))
     fig_c.update_layout(template="plotly_white", xaxis_title="Días", yaxis_title="TEA %")
     st.plotly_chart(fig_c, use_container_width=True)
+
 
 
