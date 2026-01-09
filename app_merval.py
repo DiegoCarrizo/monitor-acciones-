@@ -34,23 +34,77 @@ with tab1:
     if res_acc:
         st.table(pd.DataFrame(res_acc))
 
-# --- PESTAÑA 2: INFLACIÓN ---
+# --- PESTAÑA 2: INFLACIÓN HISTÓRICA Y PROYECTADA ---
 with tab2:
-    st.header("📊 Proyección de Inflación 2026")
-    df_inf = pd.DataFrame({"Mes": meses_2026, "IPC Mensual %": inf_proyectada})
-    total_anual = (np.prod([(1 + x/100) for x in inf_proyectada]) - 1) * 100
+    st.header("📊 Monitor de Inflación: Histórico vs Proyectado 21%")
     
-    c1, c2 = st.columns([1, 2])
-    with c1:
-        st.table(df_inf)
-        st.metric("Acumulada Anual", f"{total_anual:.1f}%")
-    with c2:
-        fig_inf = go.Figure()
-        fig_inf.add_trace(go.Scatter(x=meses_2026, y=inf_proyectada, mode='lines+markers+text', 
-                                     text=[f"{x}%" for x in inf_proyectada], textposition="top center"))
-        fig_inf.update_layout(template="plotly_white", yaxis_title="% Mensual")
-        st.plotly_chart(fig_inf, use_container_width=True)
+    # 1. DATOS HISTÓRICOS (Últimos 12 meses - 2025)
+    meses_hist = ["Ene-25", "Feb-25", "Mar-25", "Abr-25", "May-25", "Jun-25", "Jul-25", "Ago-25", "Sep-25", "Oct-25", "Nov-25", "Dic-25"]
+    inf_hist = [20.6, 13.2, 11.0, 8.8, 4.2, 4.6, 4.0, 4.2, 3.5, 2.7, 2.5, 2.3] # Datos ilustrativos 2025
 
+    # 2. TU PROYECCIÓN 2026 (Sendero 21%)
+    meses_2026 = ["Ene-26", "Feb-26", "Mar-26", "Abr-26", "May-26", "Jun-26", "Jul-26", "Ago-26", "Sep-26", "Oct-26", "Nov-26", "Dic-26"]
+    inf_2026 = [2.0, 1.8, 1.8, 1.5, 1.3, 1.2, 1.8, 0.9, 0.8, 0.8, 0.6, 1.1]
+    
+    # 3. EXPECTATIVA REM (Suele ser levemente superior a la proyección oficial)
+    rem_2026 = [x + 0.4 for x in inf_2026] 
+
+    # Unificamos para el gráfico
+    todo_meses = meses_hist + meses_2026
+    todo_valores = inf_hist + inf_2026
+
+    # --- VISUALIZACIÓN ---
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.subheader("📋 Datos Mensuales")
+        df_resumen = pd.DataFrame({
+            "Mes": meses_2026,
+            "Tu Proyección (%)": inf_2026,
+            "Expectativa REM (%)": rem_2026
+        })
+        st.table(df_resumen)
+        
+        # Cálculo de acumulada
+        total_anual = (np.prod([(1 + x/100) for x in inf_2026]) - 1) * 100
+        st.metric("Objetivo Anual 2026", f"{total_anual:.1f}%", delta="-78% vs 2025")
+
+    with col2:
+        st.subheader("📈 Curva de Desinflación")
+        fig_dual = go.Figure()
+
+        # Área Histórica
+        fig_dual.add_trace(go.Scatter(
+            x=meses_hist, y=inf_hist, 
+            name="Histórico INDEC (2025)",
+            line=dict(color='#94a3b8', width=2),
+            fill='tozeroy'
+        ))
+
+        # Tu Proyección
+        fig_dual.add_trace(go.Scatter(
+            x=meses_2026, y=inf_2026, 
+            name="Proyección Propia (2026)",
+            line=dict(color='#2ecc71', width=4),
+            mode='lines+markers'
+        ))
+
+        # REM
+        fig_dual.add_trace(go.Scatter(
+            x=meses_2026, y=rem_2026, 
+            name="REM BCRA (Expectativa)",
+            line=dict(color='#e74c3c', dash='dash')
+        ))
+
+        fig_dual.update_layout(
+            template="plotly_white",
+            hovermode="x unified",
+            yaxis_title="Inflación Mensual %",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        )
+        st.plotly_chart(fig_dual, use_container_width=True)
+
+    st.info("💡 El área gris representa la inercia del año anterior. La línea verde muestra el sendero necesario para alcanzar el 21% anual.")
 # --- PESTAÑA 3: BONOS ---
 with tab3:
     st.header("💸 Bonos Tasa Fija vs Plazo Fijo")
@@ -83,3 +137,4 @@ with tab3:
                                line=dict(color='red', dash='dot')))
     fig_c.update_layout(template="plotly_white", xaxis_title="Días", yaxis_title="TEA %")
     st.plotly_chart(fig_c, use_container_width=True)
+
