@@ -1,8 +1,9 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px  # <-- ESTA ES LA LÍNEA QUE FALTA
-import streamlit as st
+import plotly.express as px
+import streamlit.components.v1 as components  # <--- ESTA ES LA LÍNEA QUE TE FALTA
 
 # 1. Configuración de página
 st.set_page_config(layout="wide", page_title="Monitor Alpha 2026", page_icon="📈")
@@ -189,7 +190,7 @@ with tab3:
 with tab4:
     st.subheader("🤖 Modelo Quant de Selección de Activos")
     
-    # 1. DATOS (Asegúrate de que 'px' esté importado arriba en el archivo)
+    # Datos de las acciones que ya tienes en la primera tabla
     data_quant = {
         'Ticker': ['YPFD', 'PAMP', 'GGAL', 'BMA', 'EDN', 'CEPU', 'LOMA'],
         'Momentum (30d)': [12.5, 8.2, 15.1, 14.2, -2.1, 5.4, 1.2],
@@ -198,47 +199,32 @@ with tab4:
     }
     df_q = pd.DataFrame(data_quant)
 
-    # 2. ALGORITMO DE SCORING
+    # Cálculo del Score (Lógica Quant)
     df_q['Score Quant'] = (
         (df_q['Momentum (30d)'] * 2) + 
         (100 - df_q['Volatilidad %']) + 
         (df_q['RSI (14d)'] * 0.5)
     ).clip(0, 100).round(1)
 
-    # Definir Recomendación
-    def recomendar(score):
-        if score > 75: return "🔥 Compra Fuerte"
-        if score > 60: return "✅ Compra"
-        if score > 40: return "🟡 Neutral"
-        return "🚨 Evitar"
-
-    df_q['Recomendación'] = df_q['Score Quant'].apply(recomendar)
+    # Ranking y Recomendación
     df_q = df_q.sort_values(by='Score Quant', ascending=False)
+    
+    col_izq, col_der = st.columns([2, 1])
 
-    # 3. VISUALIZACIÓN
-    col_q1, col_q2 = st.columns([2, 1])
-
-    with col_q1:
-        # Usando plotly.express (px)
+    with col_izq:
+        # Gráfico con Plotly Express
         fig_q = px.bar(
-            df_q, 
-            x='Ticker', 
-            y='Score Quant', 
-            color='Score Quant',
-            color_continuous_scale='RdYlGn', 
-            text='Score Quant',
-            title="Ranking de Activos por Score"
+            df_q, x='Ticker', y='Score Quant', 
+            color='Score Quant', 
+            color_continuous_scale='RdYlGn',
+            title="Ranking de Oportunidad Técnica"
         )
-        fig_q.update_layout(template="plotly_dark", coloraxis_showscale=False)
+        fig_q.update_layout(template="plotly_dark")
         st.plotly_chart(fig_q, use_container_width=True)
 
-    with col_q2:
-        st.markdown("### 🏆 Top Picks")
+    with col_der:
+        st.write("### 🏆 Top Picks")
         for i, row in df_q.head(3).iterrows():
-            st.info(f"**{row['Ticker']}** | Score: {row['Score Quant']}")
-
-    # Tabla de matriz final
-    st.markdown("---")
-    st.write("### 📊 Matriz de Decisión Detallada")
+            st.success(f"**{row['Ticker']}** | Score: {row['Score Quant']}")
+            
     st.dataframe(df_q, use_container_width=True, hide_index=True)
-
