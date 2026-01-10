@@ -22,7 +22,7 @@ with tab1:
         "BCBA:ALUA": "Aluar", "BCBA:BMA": "Banco Macro", "BCBA:BBAR": "BBVA Francés",
         "BCBA:CEPU": "Central Puerto", "BCBA:EDN": "Edenor", "BCBA:LOMA": "Loma Negra",
         "BCBA:TXAR": "Ternium Arg", "BCBA:TGSU2": "TGS", "BCBA:BYMA": "BYMA", 
-        "NYSE:VISTA": "Vista Energy", "NYSE:CVX": "Chevron", "NYSE:OXY": "Occidental",
+        "NYSE:VIST": "Vista Energy", "NYSE:CVX": "Chevron", "NYSE:OXY": "Occidental",
         "NASDAQ:AAPL": "Apple", "NASDAQ:NVDA": "Nvidia", "NASDAQ:MSFT": "Microsoft",
         "NASDAQ:TSLA": "Tesla", "NASDAQ:GOOGL": "Google"
     }
@@ -186,3 +186,4 @@ with tab3:
     """
     
     components.html(tv_global_completo, height=620)
+
