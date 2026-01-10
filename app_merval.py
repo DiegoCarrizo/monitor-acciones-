@@ -245,7 +245,6 @@ with tab5:
     with c_rp1:
         st.metric("Riesgo País (EMBI)", f"{ultimo_valor} pb", f"{variacion} pb", delta_color="inverse")
         st.markdown(f"""
-        **Análisis Austríaco:**
         El nivel de **{ultimo_valor}** puntos básicos refleja la compresión de spreads 
         tras el saneamiento del balance del BCRA. 
         """)
@@ -305,4 +304,5 @@ with tab5:
     components.html(tv_al30, height=420)
             
     st.dataframe(df_q, use_container_width=True, hide_index=True)
+
 
