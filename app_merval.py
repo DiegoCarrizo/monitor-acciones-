@@ -135,49 +135,50 @@ with tab3:
         )
         st.plotly_chart(fig_curva, use_container_width=True)
 
-# --- MONITOR DE RENDIMIENTOS GLOBALES CORREGIDO ---
+# --- MONITOR DE TASAS GLOBALES (VERSIÓN ESTABLE) ---
     st.markdown("---")
-    st.subheader("🌍 Tasas de Referencia Internacional (Yields)")
+    st.subheader("🌍 Tasas e Índices Globales en Tiempo Real")
 
     import streamlit.components.v1 as components
 
-    # Widget de Lista de Cotizaciones con tickers corregidos
-    tv_yields_html = """
+    tv_final_widget = """
     <div class="tradingview-widget-container">
       <div class="tradingview-widget-container__widget"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js" async>
       {
+      "colorTheme": "dark",
+      "dateRange": "12M",
+      "showChart": false,
+      "locale": "es",
       "width": "100%",
-      "height": 450,
-      "symbolsGroups": [
+      "height": "400",
+      "isTransparent": true,
+      "showSymbolLogo": true,
+      "showFloatingTooltip": false,
+      "tabs": [
         {
-          "name": "Bonos Soberanos (Rendimiento)",
+          "title": "Bonos (Yield %)",
           "symbols": [
-            { "name": "ECONOMICS:US10Y", "displayName": "EE.UU. 10 Años" },
-            { "name": "ECONOMICS:US02Y", "displayName": "EE.UU. 2 Años" },
-            { "name": "ECONOMICS:DE10Y", "displayName": "Alemania 10 Años" },
-            { "name": "ECONOMICS:BR10Y", "displayName": "Brasil 10 Años" },
-            { "name": "ECONOMICS:JP10Y", "displayName": "Japón 10 Años" },
-            { "name": "ECONOMICS:CN10Y", "displayName": "China 10 Años" }
+            { "s": "US10Y", "d": "EE.UU. 10Y" },
+            { "s": "US02Y", "d": "EE.UU. 2Y" },
+            { "s": "DE10Y", "d": "Alemania 10Y" },
+            { "s": "BR10Y", "d": "Brasil 10Y" },
+            { "s": "JP10Y", "d": "Japón 10Y" }
           ]
         },
         {
-          "name": "Índices Principales",
+          "title": "Índices",
           "symbols": [
-            { "name": "CURRENCYCOM:US500", "displayName": "S&P 500" },
-            { "name": "CURRENCYCOM:US100", "displayName": "Nasdaq 100" },
-            { "name": "BITSTAMP:BTCUSD", "displayName": "Bitcoin" }
+            { "s": "SPY", "d": "S&P 500 (ETF)" },
+            { "s": "QQQ", "d": "Nasdaq 100 (ETF)" },
+            { "s": "DIA", "d": "Dow Jones (ETF)" },
+            { "s": "BTCUSD", "d": "Bitcoin" }
           ]
         }
-      ],
-      "showSymbolLogo": true,
-      "colorTheme": "dark",
-      "isTransparent": true,
-      "locale": "es"
+      ]
     }
       </script>
     </div>
     """
     
-    # Renderizar el widget
-    components.html(tv_yields_html, height=500)
+    components.html(tv_final_widget, height=420)
