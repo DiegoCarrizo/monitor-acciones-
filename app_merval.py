@@ -187,46 +187,29 @@ with tab3:
     """
     components.html(tv_no_block_widget, height=620)
 
-with tab4:
-    st.subheader("🤖 Modelo Quant de Selección de Activos")
-    
-    # Datos de las acciones que ya tienes en la primera tabla
-    data_quant = {
-        'Ticker': ['YPFD', 'PAMP', 'GGAL', 'BMA', 'EDN', 'CEPU', 'LOMA'],
-        'Momentum (30d)': [12.5, 8.2, 15.1, 14.2, -2.1, 5.4, 1.2],
-        'Volatilidad %': [22, 18, 25, 24, 30, 19, 15],
-        'RSI (14d)': [68, 55, 72, 65, 38, 52, 48]
-    }
-    df_q = pd.DataFrame(data_quant)
+# --- TABLA DETALLADA DEL MÉTODO QUANT ---
+    st.markdown("---")
+    st.write("### 📊 Matriz de Decisión Detallada")
 
-    # Cálculo del Score (Lógica Quant)
-    df_q['Score Quant'] = (
-        (df_q['Momentum (30d)'] * 2) + 
-        (100 - df_q['Volatilidad %']) + 
-        (df_q['RSI (14d)'] * 0.5)
-    ).clip(0, 100).round(1)
+    # Reordenamos las columnas para que lo más importante esté al principio
+    df_mostrar = df_q[['Ticker', 'Score Quant', 'Recomendación', 'Momentum (30d)', 'RSI (14d)', 'Volatilidad %']]
 
-    # Ranking y Recomendación
-    df_q = df_q.sort_values(by='Score Quant', ascending=False)
-    
-    col_izq, col_der = st.columns([2, 1])
+    # Aplicamos un estilo visual para que las celdas de recomendación resalten
+    def resaltar_recomendacion(val):
+        if "Compra Fuerte" in val: color = '#27ae60' # Verde fuerte
+        elif "Compra" in val: color = '#2ecc71'     # Verde
+        elif "Neutral" in val: color = '#f39c12'    # Naranja
+        else: color = '#e74c3c'                     # Rojo
+        return f'background-color: {color}; color: white; font-weight: bold'
 
-    with col_izq:
-        # Gráfico con Plotly Express
-        fig_q = px.bar(
-            df_q, x='Ticker', y='Score Quant', 
-            color='Score Quant', 
-            color_continuous_scale='RdYlGn',
-            title="Ranking de Oportunidad Técnica"
-        )
-        fig_q.update_layout(template="plotly_dark")
-        st.plotly_chart(fig_q, use_container_width=True)
+    # Mostramos la tabla con el estilo aplicado
+    st.dataframe(
+        df_mostrar.style.applymap(resaltar_recomendacion, subset=['Recomendación']),
+        use_container_width=True,
+        hide_index=True
+    )
 
-    with col_der:
-        st.write("### 🏆 Top Picks")
-        for i, row in df_q.head(3).iterrows():
-            st.success(f"**{row['Ticker']}** | Score: {row['Score Quant']}")
-import pandas as pd
+    st.caption("Nota: El Score Quant es un promedio ponderado de indicadores técnicos. No constituye una recomendación directa de inversión.")
 
 def obtener_riesgo_pais_rava():
     try:
@@ -299,3 +282,4 @@ with tab5:
     st.plotly_chart(fig_embi, use_container_width=True)
     
     st.caption(f"Última actualización: {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')} - Fuente: J.P. Morgan via Reuters")
+
