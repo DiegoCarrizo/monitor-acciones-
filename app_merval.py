@@ -20,7 +20,7 @@ def obtener_riesgo_pais_oficial():
         return 566
 
 # 1. Configuración de página
-st.set_page_config(layout="wide", page_title="Monitor Alpha 2026", page_icon="📈")
+st.set_page_config(layout="wide", page_title="Monitor Gorostiaga Bursátil 2026", page_icon="📈")
 
 st.title("🏛️ Monitor Alpha 2026 (Real-Time & BYMA)")
 
@@ -296,3 +296,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
