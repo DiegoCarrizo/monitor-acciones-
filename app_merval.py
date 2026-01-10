@@ -141,7 +141,7 @@ with tab3:
 
     import streamlit.components.v1 as components
 
-    tv_global_completo = """
+    tv_no_block_widget = """
     <div class="tradingview-widget-container">
       <div class="tradingview-widget-container__widget"></div>
       <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js" async>
@@ -158,17 +158,17 @@ with tab3:
         {
           "title": "Mercado & Commodities",
           "symbols": [
-            { "s": "NI225", "d": "Nikkei 225" },
-            { "s": "SPY", "d": "S&P 500" },
-            { "s": "QQQ", "d": "Nasdaq 100" },
-            { "s": "BTCUSD", "d": "Bitcoin" },
+            { "s": "CBOE:SPX", "d": "S&P 500 (BATS)" },
+            { "s": "NASDAQ:QQQ", "d": "Nasdaq 100" },
+            { "s": "INDEX:NKY", "d": "Nikkei 225" },
+            { "s": "BINANCE:BTCUSDT", "d": "Bitcoin" },
             { "s": "TVC:GOLD", "d": "Oro" },
-            { "s": "TVC:SILVER", "d": "Plata (SLV)" },
+            { "s": "TVC:SILVER", "d": "Plata" },
             { "s": "TVC:USOIL", "d": "WTI Crude" },
             { "s": "TVC:UKOIL", "d": "Brent Crude" },
-            { "s": "XLE", "d": "Energía (XLE)" },
-            { "s": "XLF", "d": "Financiero (XLF)" },
-            { "s": "EEM", "d": "Mkt Emergentes (EEM)" }
+            { "s": "AMEX:XLE", "d": "Energía" },
+            { "s": "AMEX:XLF", "d": "Financiero" },
+            { "s": "AMEX:EEM", "d": "Emergentes" }
           ]
         },
         {
@@ -184,6 +184,4 @@ with tab3:
       </script>
     </div>
     """
-    
-    components.html(tv_global_completo, height=620)
-
+    components.html(tv_no_block_widget, height=620)
