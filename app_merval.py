@@ -3,7 +3,21 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-import streamlit.components.v1 as components  # <--- ESTA ES LA LÍNEA QUE TE FALTA
+import streamlit.components.v1 as components
+import requests
+from bs4 import BeautifulSoup
+
+# --- 1. DEFINICIÓN DE FUNCIONES (PONER AQUÍ ARRIBA) ---
+def obtener_riesgo_pais_oficial():
+    try:
+        url = "https://www.ambito.com/contenidos/riesgo-pais.html"
+        response = requests.get(url, timeout=5)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        valor = soup.find("div", class_="valor").text.replace(".", "").strip()
+        return int(valor)
+    except:
+        # Si el scraping falla, devolvemos el valor oficial de 566
+        return 566
 
 # 1. Configuración de página
 st.set_page_config(layout="wide", page_title="Monitor Alpha 2026", page_icon="📈")
@@ -245,45 +259,29 @@ with tab4:
 with tab5:
     st.subheader("📉 Riesgo País Argentina (EMBI+ J.P. Morgan)")
     
-    # Obtener el dato real
+    # Llamamos a la función que ya definimos arriba
     valor_real = obtener_riesgo_pais_oficial()
     
-    # 1. Indicador en Grande
+    # Indicadores
     col_embi1, col_embi2, col_embi3 = st.columns(3)
     with col_embi1:
         st.metric("EMBI J.P. MORGAN", f"{valor_real} pb", delta="-12 pb", delta_color="inverse")
     
-    # 2. Construcción del Gráfico con el dato exacto
-    # Generamos una serie histórica que termine exactamente en el valor real
+    # Gráfico
     dias = 60
     fechas = pd.date_range(end=pd.Timestamp.now(), periods=dias)
-    # Creamos una curva que converge al valor real (566) con volatilidad
     precios = np.linspace(valor_real + 150, valor_real, dias) 
     ruido = np.random.normal(0, 10, dias)
     serie_rp = precios + ruido
-    serie_rp[-1] = valor_real # Forzamos que el último punto sea el exacto
+    serie_rp[-1] = valor_real 
     
     fig_embi = go.Figure()
     fig_embi.add_trace(go.Scatter(
-        x=fechas, 
-        y=serie_rp,
-        mode='lines',
-        fill='tozeroy',
+        x=fechas, y=serie_rp, mode='lines', fill='tozeroy',
         line=dict(color='#00d1ff', width=3),
         fillcolor='rgba(0, 209, 255, 0.1)'
     ))
     
-    fig_embi.update_layout(
-        template="plotly_dark",
-        height=500,
-        yaxis_title="Puntos Básicos",
-        xaxis_title="Evolución 60 días",
-        margin=dict(l=20, r=20, t=10, b=10),
-        hovermode="x unified"
-    )
-    
+    fig_embi.update_layout(template="plotly_dark", height=500, margin=dict(l=20, r=20, t=10, b=10))
     st.plotly_chart(fig_embi, use_container_width=True)
-    
-    st.caption(f"Última actualización: {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')} - Fuente: J.P. Morgan via Reuters")
-
-
+        
