@@ -135,41 +135,14 @@ with tab3:
         )
         st.plotly_chart(fig_curva, use_container_width=True)
 
-# --- TASAS GLOBALES EN VIVO (TRADINGVIEW TICKER) ---
+# --- MONITOR DE RENDIMIENTOS GLOBALES CORREGIDO ---
     st.markdown("---")
-    st.subheader("🌍 Monitor de Tasas y Rendimientos Globales")
+    st.subheader("🌍 Tasas de Referencia Internacional (Yields)")
 
     import streamlit.components.v1 as components
 
-    # HTML del Widget Ticker Tape (Muestra el rendimiento/yield directamente)
-    tv_ticker_html = """
-    <div class="tradingview-widget-container">
-      <div class="tradingview-widget-container__widget"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-tickers.js" async>
-      {
-      "symbols": [
-        { "proName": "TVC:US10Y", "title": "Bono EE.UU. 10Y (Yield)" },
-        { "proName": "TVC:US02Y", "title": "Bono EE.UU. 2Y (Yield)" },
-        { "proName": "TVC:DE10Y", "title": "Bono Alemania 10Y" },
-        { "proName": "TVC:BR10Y", "title": "Bono Brasil 10Y" },
-        { "proName": "CURRENCYCOM:UK10Y", "title": "Bono R.Unido 10Y" },
-        { "proName": "FOREXCOM:SPXUSD", "title": "S&P 500" },
-        { "proName": "FOREXCOM:NSXUSD", "title": "Nasdaq 100" }
-      ],
-      "colorTheme": "dark",
-      "isTransparent": true,
-      "showSymbolLogo": true,
-      "locale": "es"
-    }
-      </script>
-    </div>
-    """
-
-    # Renderizamos el widget (ajustamos la altura para que se vea la lista)
-    components.html(tv_ticker_html, height=100)
-
-    # Si prefieres una lista más grande y estática en lugar de la cinta, usa este otro widget:
-    tv_market_list_html = """
+    # Widget de Lista de Cotizaciones con tickers corregidos
+    tv_yields_html = """
     <div class="tradingview-widget-container">
       <div class="tradingview-widget-container__widget"></div>
       <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
@@ -178,14 +151,22 @@ with tab3:
       "height": 450,
       "symbolsGroups": [
         {
-          "name": "Bonos Soberanos (Yields)",
-          "originalName": "Bonds",
+          "name": "Bonos Soberanos (Rendimiento)",
           "symbols": [
-            { "name": "TVC:US10Y", "displayName": "EE.UU. 10 Años" },
-            { "name": "TVC:US02Y", "displayName": "EE.UU. 2 Años" },
-            { "name": "TVC:DE10Y", "displayName": "Alemania 10 Años" },
-            { "name": "TVC:BR10Y", "displayName": "Brasil 10 Años" },
-            { "name": "TVC:JP10Y", "displayName": "Japón 10 Años" }
+            { "name": "ECONOMICS:US10Y", "displayName": "EE.UU. 10 Años" },
+            { "name": "ECONOMICS:US02Y", "displayName": "EE.UU. 2 Años" },
+            { "name": "ECONOMICS:DE10Y", "displayName": "Alemania 10 Años" },
+            { "name": "ECONOMICS:BR10Y", "displayName": "Brasil 10 Años" },
+            { "name": "ECONOMICS:JP10Y", "displayName": "Japón 10 Años" },
+            { "name": "ECONOMICS:CN10Y", "displayName": "China 10 Años" }
+          ]
+        },
+        {
+          "name": "Índices Principales",
+          "symbols": [
+            { "name": "CURRENCYCOM:US500", "displayName": "S&P 500" },
+            { "name": "CURRENCYCOM:US100", "displayName": "Nasdaq 100" },
+            { "name": "BITSTAMP:BTCUSD", "displayName": "Bitcoin" }
           ]
         }
       ],
@@ -197,4 +178,6 @@ with tab3:
       </script>
     </div>
     """
-    components.html(tv_market_list_html, height=480)
+    
+    # Renderizar el widget
+    components.html(tv_yields_html, height=500)
