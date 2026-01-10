@@ -202,19 +202,25 @@ with tab3:
     components.html(tv_no_block_widget, height=620)
 
 with tab4:
-    st.subheader("🤖 Explorador Quant de Activos")
+    st.subheader("🤖 Explorador Quant Multimercado")
 
-    # 1. BASE DE DATOS COMPLETA (Aquí puedes agregar todos tus tickers)
-    # He ampliado la lista para que sea un espejo de tu tabla principal
+    # 1. BASE DE DATOS AMPLIADA (Merval + USA)
     data_full = {
-        'Ticker': ['YPFD', 'PAMP', 'GGAL', 'BMA', 'EDN', 'CEPU', 'LOMA', 'ALUA', 'TXAR', 'COME', 'TRAN', 'TGSU2', 'SUPV'],
-        'Momentum (30d)': [12.5, 8.2, 15.1, 14.2, -2.1, 5.4, 1.2, 3.5, 4.1, 9.8, 11.2, 6.7, 13.5],
-        'Volatilidad %': [22, 18, 25, 24, 30, 19, 15, 12, 14, 28, 26, 20, 29],
-        'RSI (14d)': [68, 55, 72, 65, 38, 52, 48, 45, 47, 61, 64, 53, 70]
+        'Ticker': [
+            'YPFD', 'PAMP', 'GGAL', 'BMA', 'EDN', 'CEPU', 'LOMA', 'ALUA',  # Merval
+            'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'KO' # EE.UU.
+        ],
+        'Mercado': [
+            '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval',
+            '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA'
+        ],
+        'Momentum (30d)': [12.5, 8.2, 15.1, 14.2, -2.1, 5.4, 1.2, 3.5, 5.2, 4.8, 2.1, 6.4, -10.2, 18.5, 7.2, 1.5],
+        'Volatilidad %': [22, 18, 25, 24, 30, 19, 15, 12, 14, 13, 16, 18, 45, 35, 20, 10],
+        'RSI (14d)': [68, 55, 72, 65, 38, 52, 48, 45, 58, 62, 51, 64, 32, 75, 66, 54]
     }
     df_full = pd.DataFrame(data_full)
 
-    # Cálculo general de Score y Recomendación
+    # Cálculo del Score Quant
     df_full['Score Quant'] = ((df_full['Momentum (30d)'] * 2) + (100 - df_full['Volatilidad %']) + (df_full['RSI (14d)'] * 0.5)).clip(0, 100).round(1)
     
     def get_reco(s):
@@ -225,39 +231,41 @@ with tab4:
     
     df_full['Recomendación'] = df_full['Score Quant'].apply(get_reco)
 
-    # 2. SELECTOR DE ACCIÓN
-    seleccion = st.selectbox("🔍 Seleccione una acción para analizar:", df_full['Ticker'].sort_values())
+    # 2. SELECTORES DE MERCADO Y ACCIÓN
+    col_sel1, col_sel2 = st.columns(2)
+    with col_sel1:
+        mercado_f = st.selectbox("🌎 Seleccione Mercado:", df_full['Mercado'].unique())
+    with col_sel2:
+        ticker_f = st.selectbox("🔍 Seleccione Activo:", df_full[df_full['Mercado'] == mercado_f]['Ticker'].sort_values())
 
-    # 3. DESPLIEGUE DEL ANÁLISIS INDIVIDUAL (Ficha Técnica)
-    row = df_full[df_full['Ticker'] == seleccion].iloc[0]
-
-    col_f1, col_f2 = st.columns([1, 2])
+    # 3. FICHA TÉCNICA DEL ACTIVO
+    row = df_full[df_full['Ticker'] == ticker_f].iloc[0]
     
-    with col_f1:
-        st.metric(f"Score: {seleccion}", f"{row['Score Quant']} pts")
-        st.subheader(row['Recomendación'])
-        st.write(f"**Análisis de Situación:** El activo presenta un RSI de {row['RSI (14d)']}, lo que indica una zona de {'sobrecompra' if row['RSI (14d)'] > 70 else 'neutralidad' if row['RSI (14d)'] > 40 else 'sobreventa'}.")
+    st.markdown(f"### Análisis de {ticker_f} ({mercado_f})")
+    c1, c2, c3 = st.columns([1,1,2])
+    
+    with c1:
+        st.metric("Score Quant", f"{row['Score Quant']} pts")
+    with c2:
+        st.write("**Recomendación:**")
+        st.markdown(f"#### {row['Recomendación']}")
+    with c3:
+        # Mini indicador visual de RSI
+        rsi_val = row['RSI (14d)']
+        st.write(f"**RSI (14d):** {rsi_val}")
+        st.progress(int(rsi_val))
 
-    with col_f2:
-        # Gráfico comparativo: Cómo está este activo vs el promedio del mercado
-        avg_score = df_full['Score Quant'].mean()
-        fig_comp = go.Figure()
-        fig_comp.add_trace(go.Bar(x=['Mercado (Promedio)', seleccion], 
-                                 y=[avg_score, row['Score Quant']],
-                                 marker_color=['#444', '#00d1ff']))
-        fig_comp.update_layout(title=f"{seleccion} vs. Promedio Merval", template="plotly_dark", height=300)
-        st.plotly_chart(fig_comp, use_container_width=True)
-
-    # 4. TABLA GENERAL (Mantenemos el ranking abajo)
+    # 4. TABLA COMPARATIVA POR MERCADO
     st.markdown("---")
-    st.write("### 📊 Ranking General de Oportunidad Técnica")
+    st.write(f"### 📊 Ranking Oportunidad: {mercado_f}")
     
-    # Estilo para la tabla
+    df_tabla = df_full[df_full['Mercado'] == mercado_f].sort_values('Score Quant', ascending=False)
+    
     def color_reco(val):
         color = '#27ae60' if "Fuerte" in val else '#2ecc71' if "Compra" in val else '#f39c12' if "Neutral" in val else '#e74c3c'
         return f'background-color: {color}; color: white; font-weight: bold'
 
-    st.dataframe(df_full.sort_values('Score Quant', ascending=False).style.applymap(color_reco, subset=['Recomendación']),
+    st.dataframe(df_tabla.style.applymap(color_reco, subset=['Recomendación']),
                  use_container_width=True, hide_index=True)
 with tab5:
     st.subheader("📉 Riesgo País Argentina (EMBI+ J.P. Morgan)")
@@ -299,6 +307,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
