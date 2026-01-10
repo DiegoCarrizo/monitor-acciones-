@@ -134,3 +134,54 @@ with tab3:
             showlegend=False
         )
         st.plotly_chart(fig_curva, use_container_width=True)
+
+# --- SECCIÓN DE TASAS GLOBALES (TRADINGVIEW) ---
+    st.markdown("---")
+    st.subheader("🌍 Tasas de Referencia Global (Real-time)")
+
+    # Usamos componentes de HTML para embeber el widget de TradingView
+    import streamlit.components.v1 as components
+
+    # Definimos el HTML del widget de TradingView
+    tv_widget_html = """
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js" async>
+      {
+      "colorTheme": "dark",
+      "dateRange": "12M",
+      "showChart": false,
+      "locale": "es",
+      "largeChartUrl": "",
+      "isTransparent": true,
+      "showSymbolLogo": true,
+      "showFloatingTooltip": false,
+      "width": "100%",
+      "height": "400",
+      "tabs": [
+        {
+          "title": "Bonos Globales",
+          "symbols": [
+            { "s": "TVC:US10Y", "d": "EE.UU. 10 Años" },
+            { "s": "TVC:DE10Y", "d": "Alemania 10 Años" },
+            { "s": "TVC:JP10Y", "d": "Japón 10 Años" },
+            { "s": "TVC:GB10Y", "d": "Reino Unido 10 Años" },
+            { "s": "TVC:BR10Y", "d": "Brasil 10 Años" }
+          ]
+        },
+        {
+          "title": "Índices",
+          "symbols": [
+            { "s": "FOREXCOM:SPXUSD", "d": "S&P 500" },
+            { "s": "FOREXCOM:NSXUSD", "d": "Nasdaq 100" },
+            { "s": "BITSTAMP:BTCUSD", "d": "Bitcoin" }
+          ]
+        }
+      ]
+    }
+      </script>
+    </div>
+    """
+
+    # Renderizamos el widget en Streamlit
+    components.html(tv_widget_html, height=450)
