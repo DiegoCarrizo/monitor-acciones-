@@ -241,14 +241,43 @@ def obtener_riesgo_pais_rava():
         return "N/A"
 
 with tab5:
-    st.subheader("📉 Monitor de Riesgo País (Fuente: J.P. Morgan / Rava)")
+    st.subheader("📉 Monitor Técnico de Riesgo Soberano")
     
-    # Creamos un Iframe que trae directamente el valor y gráfico de Rava
-    # Esto es lo más preciso porque se actualiza con los datos de ellos
-    rava_url = "https://www.rava.com/perfil/RIESGO%20PAIS"
+    # Explicación breve con estilo profesional
+    st.write("""
+    Análisis dinámico del spread soberano. El gráfico refleja la evolución del principal 
+    bono de referencia (AL30), cuya compresión de tasas es el motor de la baja del Riesgo País.
+    """)
+
+    # Widget de TradingView Técnico y Limpio
+    # Usamos el gráfico de área avanzado que se actualiza solo.
+    tv_rp_dinamico = """
+    <div class="tradingview-widget-container" style="height:500px;">
+      <div id="tradingview_rp"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget({
+        "autosize": true,
+        "symbol": "BCBA:AL30D",
+        "interval": "D",
+        "timezone": "America/Argentina/Buenos_Aires",
+        "theme": "dark",
+        "style": "3",
+        "locale": "es",
+        "toolbar_bg": "#f1f3f6",
+        "enable_publishing": false,
+        "hide_top_toolbar": true,
+        "save_image": false,
+        "container_id": "tradingview_rp",
+        "backgroundColor": "rgba(0, 0, 0, 1)",
+        "gridColor": "rgba(42, 46, 57, 0.06)",
+        "hide_side_toolbar": false
+      });
+      </script>
+    </div>
+    """
     
-    st.markdown(f"""
-        <iframe src="{rava_url}" width="100%" height="600" style="border:none; border-radius:10px;"></iframe>
-    """, unsafe_allow_html=True)
-    
-    st.info("💡 El gráfico superior muestra la cotización en tiempo real procesada por Rava Bursátil.")
+    # Insertar el componente en Streamlit
+    components.html(tv_rp_dinamico, height=520)
+
+    st.info("📊 **Nota de Mercado:** El Riesgo País se mueve de forma inversa al precio del bono AL30D mostrado arriba. Una tendencia alcista en el gráfico implica una caída del Riesgo País.")
