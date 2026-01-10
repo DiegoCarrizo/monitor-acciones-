@@ -85,19 +85,41 @@ with tab2:
 
 # --- PESTAÑA 3: TASAS Y BONOS (BYMA INTEGRADO) ---
 with tab3:
-    st.subheader("🏦 Mercado de Deuda y Tasas BNA")
+    # --- CÓDIGO PARA LA CURVA DE RENDIMIENTOS ---
+    st.subheader("🏦 Estructura Temporal de Tasas (Yield Curve)")
     
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric("Tasa Plazo Fijo BNA (Mensual)", "3.20%")
-        # Cuadro de LECAPS
-        df_lecaps = pd.DataFrame({
-            "Ticker": ["S31M6", "S30J6", "S29A6", "TO26"],
-            "Vencimiento": ["Mar-26", "Jun-26", "Ago-26", "Oct-26"],
-            "TEM %": [3.80, 3.92, 4.10, 4.50]
-        })
-        st.write("**Panel de Lecaps / Boncaps**")
-        st.table(df_lecaps)
+    # Creamos un DataFrame rápido con los datos que ya usas en tu tabla
+    df_curva = pd.DataFrame({
+        'Ticker': ['S31M6', 'S30J6', 'S29A6', 'S30S6', 'T2X6', 'AL30', 'GD30'],
+        'Plazo_Meses': [3, 6, 8, 9, 10, 48, 52], 
+        'TEM': [3.80, 3.92, 4.10, 4.25, 4.40, 5.10, 4.90] 
+    }).sort_values('Plazo_Meses')
+
+    # Creamos el gráfico interactivo
+    fig_curva = go.Figure()
+    fig_curva.add_trace(go.Scatter(
+        x=df_curva['Plazo_Meses'], 
+        y=df_curva['TEM'],
+        mode='lines+markers+text',
+        name='Curva Soberana',
+        text=df_curva['Ticker'],
+        textposition="top center",
+        line=dict(color='#f1c40f', width=3),
+        marker=dict(size=10, color='#f39c12', symbol='diamond')
+    ))
+
+    fig_curva.update_layout(
+        template="plotly_dark",
+        xaxis_title="Plazo (Meses al vencimiento)",
+        yaxis_title="Retorno (TEM %)",
+        height=500,
+        margin=dict(l=20, r=20, t=50, b=20),
+        hovermode="x unified"
+    )
+
+    # Mostramos el gráfico
+    st.plotly_chart(fig_curva, use_container_width=True)
+    # --- FIN DEL CÓDIGO DE LA CURVA ---
         
     with c2:
         # Widget de TradingView para Bonos (Riesgo País o Bonos Globales)
@@ -116,3 +138,4 @@ with tab3:
           </script>
         </div>"""
         components.html(tv_bonos, height=420)
+
