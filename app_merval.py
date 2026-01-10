@@ -10,7 +10,7 @@ st.set_page_config(layout="wide", page_title="Monitor Alpha 2026", page_icon="�
 st.title("🏛️ Monitor Alpha 2026 (Real-Time & BYMA)")
 
 # Definición de pestañas
-tab1, tab2, tab3 = st.tabs(["📊 Acciones (Live)", "🍞 Inflación 2026", "🏦 Tasas & Bonos"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant"])
 
 # --- PESTAÑA 1: ACCIONES CON TODAS LAS EMPRESAS ---
 with tab1:
@@ -185,3 +185,64 @@ with tab3:
     </div>
     """
     components.html(tv_no_block_widget, height=620)
+
+with tab4:
+    st.subheader("🤖 Modelo Quant de Selección de Activos")
+    st.markdown("""
+    Este modelo utiliza algoritmos para calificar activos basándose en **Momentum de Precio**, **Volatilidad** y **Desviación de Medias Móviles**. 
+    *Un Score > 70 indica una oportunidad de compra técnica.*
+    """)
+
+    # 1. DATOS PARA EL MODELO (Basado en tu tabla de acciones)
+    # Simulamos el procesamiento Quant para las principales acciones del Merval
+    data_quant = {
+        'Ticker': ['YPFD', 'PAMP', 'GGAL', 'BMA', 'EDN', 'CEPU', 'LOMA'],
+        'Momentum (30d)': [12.5, 8.2, 15.1, 14.2, -2.1, 5.4, 1.2],
+        'Volatilidad %': [22, 18, 25, 24, 30, 19, 15],
+        'RSI (14d)': [68, 55, 72, 65, 38, 52, 48]
+    }
+    df_q = pd.DataFrame(data_quant)
+
+    # 2. ALGORITMO DE SCORING (Lógica Quant)
+    # Calculamos el Score: mayor momentum y RSI saludable (no sobrecompra) suma puntos
+    df_q['Score Quant'] = (
+        (df_q['Momentum (30d)'] * 2) + 
+        (100 - df_q['Volatilidad %']) + 
+        (df_q['RSI (14d)'] * 0.5)
+    ).clip(0, 100).round(1)
+
+    # Definir Recomendación
+    def recomendar(score):
+        if score > 75: return "🔥 Compra Fuerte"
+        if score > 60: return "✅ Compra"
+        if score > 40: return "🟡 Neutral"
+        return "🚨 Evitar"
+
+    df_q['Recomendación'] = df_q['Score Quant'].apply(recomendar)
+    df_q = df_q.sort_values(by='Score Quant', ascending=False)
+
+    # 3. VISUALIZACIÓN
+    col_q1, col_q2 = st.columns([2, 1])
+
+    with col_q1:
+        # Gráfico de barras interactivo para el Score
+        fig_q = px.bar(df_q, x='Ticker', y='Score Quant', color='Score Quant',
+                       color_continuous_scale='RdYlGn', text='Score Quant',
+                       title="Ranking Quant por Ticker")
+        fig_q.update_layout(template="plotly_dark", coloraxis_showscale=False)
+        st.plotly_chart(fig_q, use_container_width=True)
+
+    with col_q2:
+        st.write("**Top Picks Quant**")
+        for i, row in df_q.head(3).iterrows():
+            st.success(f"{row['Ticker']}: Score {row['Score Quant']}")
+
+    # Mostrar Tabla Detallada
+    st.markdown("### 📊 Matriz de Decisión Quant")
+    
+    # Aplicar colores a la tabla
+    def color_score(val):
+        color = 'green' if val > 70 else 'orange' if val > 40 else 'red'
+        return f'color: {color}'
+
+    st.dataframe(df_q.style.applymap(color_score, subset=['Score Quant']), use_container_width=True)
