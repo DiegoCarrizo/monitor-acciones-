@@ -22,7 +22,7 @@ def obtener_riesgo_pais_oficial():
 # 1. Configuración de página
 st.set_page_config(layout="wide", page_title="Monitor Gorostiaga Bursátil 2026", page_icon="📈")
 
-st.title("🏛️ Monitor Alpha 2026 (Real-Time & BYMA)")
+st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 
 # Definición de pestañas
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
@@ -296,4 +296,5 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
