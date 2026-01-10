@@ -202,60 +202,63 @@ with tab3:
     components.html(tv_no_block_widget, height=620)
 
 with tab4:
-    st.subheader("🤖 Modelo Quant de Selección de Activos")
-    
-    # 1. DEFINICIÓN DE DATOS (Aseguramos que df_q exista aquí mismo)
-    data_quant = {
-        'Ticker': ['YPFD', 'PAMP', 'GGAL', 'BMA', 'EDN', 'CEPU', 'LOMA'],
-        'Momentum (30d)': [12.5, 8.2, 15.1, 14.2, -2.1, 5.4, 1.2],
-        'Volatilidad %': [22, 18, 25, 24, 30, 19, 15],
-        'RSI (14d)': [68, 55, 72, 65, 38, 52, 48]
+    st.subheader("🤖 Explorador Quant de Activos")
+
+    # 1. BASE DE DATOS COMPLETA (Aquí puedes agregar todos tus tickers)
+    # He ampliado la lista para que sea un espejo de tu tabla principal
+    data_full = {
+        'Ticker': ['YPFD', 'PAMP', 'GGAL', 'BMA', 'EDN', 'CEPU', 'LOMA', 'ALUA', 'TXAR', 'COME', 'TRAN', 'TGSU2', 'SUPV'],
+        'Momentum (30d)': [12.5, 8.2, 15.1, 14.2, -2.1, 5.4, 1.2, 3.5, 4.1, 9.8, 11.2, 6.7, 13.5],
+        'Volatilidad %': [22, 18, 25, 24, 30, 19, 15, 12, 14, 28, 26, 20, 29],
+        'RSI (14d)': [68, 55, 72, 65, 38, 52, 48, 45, 47, 61, 64, 53, 70]
     }
-    df_q = pd.DataFrame(data_quant)
+    df_full = pd.DataFrame(data_full)
 
-    # 2. CÁLCULO DEL SCORE
-    df_q['Score Quant'] = (
-        (df_q['Momentum (30d)'] * 2) + 
-        (100 - df_q['Volatilidad %']) + 
-        (df_q['RSI (14d)'] * 0.5)
-    ).clip(0, 100).round(1)
-
-    def recomendar(score):
-        if score > 75: return "🔥 Compra Fuerte"
-        if score > 60: return "✅ Compra"
-        if score > 40: return "🟡 Neutral"
+    # Cálculo general de Score y Recomendación
+    df_full['Score Quant'] = ((df_full['Momentum (30d)'] * 2) + (100 - df_full['Volatilidad %']) + (df_full['RSI (14d)'] * 0.5)).clip(0, 100).round(1)
+    
+    def get_reco(s):
+        if s > 75: return "🔥 Compra Fuerte"
+        if s > 60: return "✅ Compra"
+        if s > 40: return "🟡 Neutral"
         return "🚨 Evitar"
+    
+    df_full['Recomendación'] = df_full['Score Quant'].apply(get_reco)
 
-    df_q['Recomendación'] = df_q['Score Quant'].apply(recomendar)
-    df_q = df_q.sort_values(by='Score Quant', ascending=False)
+    # 2. SELECTOR DE ACCIÓN
+    seleccion = st.selectbox("🔍 Seleccione una acción para analizar:", df_full['Ticker'].sort_values())
 
-    # 3. GRÁFICO
-    fig_q = px.bar(
-        df_q, x='Ticker', y='Score Quant', 
-        color='Score Quant', color_continuous_scale='RdYlGn',
-        text='Score Quant', title="Ranking de Oportunidad Técnica"
-    )
-    fig_q.update_layout(template="plotly_dark")
-    st.plotly_chart(fig_q, use_container_width=True)
+    # 3. DESPLIEGUE DEL ANÁLISIS INDIVIDUAL (Ficha Técnica)
+    row = df_full[df_full['Ticker'] == seleccion].iloc[0]
 
-    # 4. RESTAURACIÓN DE LA TABLA (Aquí ya no fallará porque df_q se definió arriba)
+    col_f1, col_f2 = st.columns([1, 2])
+    
+    with col_f1:
+        st.metric(f"Score: {seleccion}", f"{row['Score Quant']} pts")
+        st.subheader(row['Recomendación'])
+        st.write(f"**Análisis de Situación:** El activo presenta un RSI de {row['RSI (14d)']}, lo que indica una zona de {'sobrecompra' if row['RSI (14d)'] > 70 else 'neutralidad' if row['RSI (14d)'] > 40 else 'sobreventa'}.")
+
+    with col_f2:
+        # Gráfico comparativo: Cómo está este activo vs el promedio del mercado
+        avg_score = df_full['Score Quant'].mean()
+        fig_comp = go.Figure()
+        fig_comp.add_trace(go.Bar(x=['Mercado (Promedio)', seleccion], 
+                                 y=[avg_score, row['Score Quant']],
+                                 marker_color=['#444', '#00d1ff']))
+        fig_comp.update_layout(title=f"{seleccion} vs. Promedio Merval", template="plotly_dark", height=300)
+        st.plotly_chart(fig_comp, use_container_width=True)
+
+    # 4. TABLA GENERAL (Mantenemos el ranking abajo)
     st.markdown("---")
-    st.write("### 📊 Matriz de Decisión Detallada")
+    st.write("### 📊 Ranking General de Oportunidad Técnica")
     
-    df_mostrar = df_q[['Ticker', 'Score Quant', 'Recomendación', 'Momentum (30d)', 'RSI (14d)', 'Volatilidad %']]
-    
-    def resaltar_reco(val):
-        if "Compra Fuerte" in val: color = '#27ae60'
-        elif "Compra" in val: color = '#2ecc71'
-        elif "Neutral" in val: color = '#f39c12'
-        else: color = '#e74c3c'
+    # Estilo para la tabla
+    def color_reco(val):
+        color = '#27ae60' if "Fuerte" in val else '#2ecc71' if "Compra" in val else '#f39c12' if "Neutral" in val else '#e74c3c'
         return f'background-color: {color}; color: white; font-weight: bold'
 
-    st.dataframe(
-        df_mostrar.style.applymap(resaltar_reco, subset=['Recomendación']),
-        use_container_width=True,
-        hide_index=True
-    )
+    st.dataframe(df_full.sort_values('Score Quant', ascending=False).style.applymap(color_reco, subset=['Recomendación']),
+                 use_container_width=True, hide_index=True)
 with tab5:
     st.subheader("📉 Riesgo País Argentina (EMBI+ J.P. Morgan)")
     
@@ -296,5 +299,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
