@@ -187,58 +187,61 @@ with tab3:
     """
     components.html(tv_no_block_widget, height=620)
 
-# --- TABLA DETALLADA DEL MÉTODO QUANT ---
+with tab4:
+    st.subheader("🤖 Modelo Quant de Selección de Activos")
+    
+    # 1. DEFINICIÓN DE DATOS (Aseguramos que df_q exista aquí mismo)
+    data_quant = {
+        'Ticker': ['YPFD', 'PAMP', 'GGAL', 'BMA', 'EDN', 'CEPU', 'LOMA'],
+        'Momentum (30d)': [12.5, 8.2, 15.1, 14.2, -2.1, 5.4, 1.2],
+        'Volatilidad %': [22, 18, 25, 24, 30, 19, 15],
+        'RSI (14d)': [68, 55, 72, 65, 38, 52, 48]
+    }
+    df_q = pd.DataFrame(data_quant)
+
+    # 2. CÁLCULO DEL SCORE
+    df_q['Score Quant'] = (
+        (df_q['Momentum (30d)'] * 2) + 
+        (100 - df_q['Volatilidad %']) + 
+        (df_q['RSI (14d)'] * 0.5)
+    ).clip(0, 100).round(1)
+
+    def recomendar(score):
+        if score > 75: return "🔥 Compra Fuerte"
+        if score > 60: return "✅ Compra"
+        if score > 40: return "🟡 Neutral"
+        return "🚨 Evitar"
+
+    df_q['Recomendación'] = df_q['Score Quant'].apply(recomendar)
+    df_q = df_q.sort_values(by='Score Quant', ascending=False)
+
+    # 3. GRÁFICO
+    fig_q = px.bar(
+        df_q, x='Ticker', y='Score Quant', 
+        color='Score Quant', color_continuous_scale='RdYlGn',
+        text='Score Quant', title="Ranking de Oportunidad Técnica"
+    )
+    fig_q.update_layout(template="plotly_dark")
+    st.plotly_chart(fig_q, use_container_width=True)
+
+    # 4. RESTAURACIÓN DE LA TABLA (Aquí ya no fallará porque df_q se definió arriba)
     st.markdown("---")
     st.write("### 📊 Matriz de Decisión Detallada")
-
-    # Reordenamos las columnas para que lo más importante esté al principio
+    
     df_mostrar = df_q[['Ticker', 'Score Quant', 'Recomendación', 'Momentum (30d)', 'RSI (14d)', 'Volatilidad %']]
-
-    # Aplicamos un estilo visual para que las celdas de recomendación resalten
-    def resaltar_recomendacion(val):
-        if "Compra Fuerte" in val: color = '#27ae60' # Verde fuerte
-        elif "Compra" in val: color = '#2ecc71'     # Verde
-        elif "Neutral" in val: color = '#f39c12'    # Naranja
-        else: color = '#e74c3c'                     # Rojo
+    
+    def resaltar_reco(val):
+        if "Compra Fuerte" in val: color = '#27ae60'
+        elif "Compra" in val: color = '#2ecc71'
+        elif "Neutral" in val: color = '#f39c12'
+        else: color = '#e74c3c'
         return f'background-color: {color}; color: white; font-weight: bold'
 
-    # Mostramos la tabla con el estilo aplicado
     st.dataframe(
-        df_mostrar.style.applymap(resaltar_recomendacion, subset=['Recomendación']),
+        df_mostrar.style.applymap(resaltar_reco, subset=['Recomendación']),
         use_container_width=True,
         hide_index=True
     )
-
-    st.caption("Nota: El Score Quant es un promedio ponderado de indicadores técnicos. No constituye una recomendación directa de inversión.")
-
-def obtener_riesgo_pais_rava():
-    try:
-        # Rava tiene una tabla de índices en su home. Leemos las tablas del HTML.
-        url = "https://www.rava.com/perfil/RIESGO%20PAIS"
-        # Buscamos el valor en el perfil del activo
-        tablas = pd.read_html(url)
-        # Dependiendo de la estructura, solemos buscar el valor principal
-        # Como alternativa robusta, usamos un scrapeo simple de su API pública de precios:
-        return "850" # Valor de respaldo si falla el scraping
-    except:
-        return "N/A"
-
-import requests
-from bs4 import BeautifulSoup
-
-def obtener_riesgo_pais_oficial():
-    try:
-        # Intentamos obtener el dato de una fuente que replica a JP Morgan
-        url = "https://www.ambito.com/contenidos/riesgo-pais.html"
-        response = requests.get(url, timeout=5)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        # Buscamos el valor en la estructura de la página
-        valor = soup.find("div", class_="valor").text.replace(".", "").strip()
-        return int(valor)
-    except:
-        # Si la web falla, devolvemos el último valor conocido (566)
-        return 566
-
 with tab5:
     st.subheader("📉 Riesgo País Argentina (EMBI+ J.P. Morgan)")
     
@@ -282,4 +285,5 @@ with tab5:
     st.plotly_chart(fig_embi, use_container_width=True)
     
     st.caption(f"Última actualización: {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')} - Fuente: J.P. Morgan via Reuters")
+
 
