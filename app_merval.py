@@ -285,3 +285,14 @@ with tab5:
     fig_embi.update_layout(template="plotly_dark", height=500, margin=dict(l=20, r=20, t=10, b=10))
     st.plotly_chart(fig_embi, use_container_width=True)
         
+# --- PIE DE PÁGINA (DISCLAIMER) ---
+st.markdown("---")  # Una línea sutil de separación
+st.markdown(
+    """
+    <div style="font-family: 'Times New Roman', Times, serif; font-size: 12px; text-align: center; color: #888888; padding: 20px;">
+        Esta página no constituye una recomendación de inversión. Solo muestra datos que evalúan el rendimiento de activos con sus correspondientes comparaciones. 
+        Comuníquese con su asesor de Gorostiaga Bursátil o en <a href="https://www.gorostiagabursatil.com" style="color: #888888; text-decoration: underline;">www.gorostiagabursatil.com</a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
