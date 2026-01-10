@@ -1,3 +1,4 @@
+import plotly.graph_objects as go
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
@@ -85,41 +86,45 @@ with tab2:
 
 # --- PESTAÑA 3: TASAS Y BONOS (BYMA INTEGRADO) ---
 with tab3:
-    # --- CÓDIGO PARA LA CURVA DE RENDIMIENTOS ---
-    st.subheader("🏦 Estructura Temporal de Tasas (Yield Curve)")
+   with tab3:
+    st.subheader("🏦 Estructura Temporal de Tasas")
     
-    # Creamos un DataFrame rápido con los datos que ya usas en tu tabla
+    # 1. Definimos los datos de la curva
     df_curva = pd.DataFrame({
         'Ticker': ['S31M6', 'S30J6', 'S29A6', 'S30S6', 'T2X6', 'AL30', 'GD30'],
         'Plazo_Meses': [3, 6, 8, 9, 10, 48, 52], 
         'TEM': [3.80, 3.92, 4.10, 4.25, 4.40, 5.10, 4.90] 
     }).sort_values('Plazo_Meses')
 
-    # Creamos el gráfico interactivo
-    fig_curva = go.Figure()
-    fig_curva.add_trace(go.Scatter(
-        x=df_curva['Plazo_Meses'], 
-        y=df_curva['TEM'],
-        mode='lines+markers+text',
-        name='Curva Soberana',
-        text=df_curva['Ticker'],
-        textposition="top center",
-        line=dict(color='#f1c40f', width=3),
-        marker=dict(size=10, color='#f39c12', symbol='diamond')
-    ))
+    # 2. Creamos las columnas para organizar la pantalla
+    col1, col2 = st.columns([1, 2]) # Aquí definimos col1 y col2 para evitar el NameError
 
-    fig_curva.update_layout(
-        template="plotly_dark",
-        xaxis_title="Plazo (Meses al vencimiento)",
-        yaxis_title="Retorno (TEM %)",
-        height=500,
-        margin=dict(l=20, r=20, t=50, b=20),
-        hovermode="x unified"
-    )
+    with col1:
+        st.write("**Detalle de Tasas**")
+        st.dataframe(df_curva, hide_index=True)
 
-    # Mostramos el gráfico
-    st.plotly_chart(fig_curva, use_container_width=True)
-    # --- FIN DEL CÓDIGO DE LA CURVA ---
+    with col2:
+        # Gráfico interactivo de la Curva
+        fig_curva = go.Figure()
+        fig_curva.add_trace(go.Scatter(
+            x=df_curva['Plazo_Meses'], 
+            y=df_curva['TEM'],
+            mode='lines+markers+text',
+            text=df_curva['Ticker'],
+            textposition="top center",
+            line=dict(color='#f1c40f', width=3),
+            marker=dict(size=10, color='#f39c12', symbol='diamond')
+        ))
+
+        fig_curva.update_layout(
+            template="plotly_dark",
+            xaxis_title="Plazo (Meses)",
+            yaxis_title="TEM %",
+            height=400,
+            margin=dict(l=10, r=10, t=30, b=10),
+            showlegend=False
+        )
+        st.plotly_chart(fig_curva, use_container_width=True)
         
     with c2:
         # Widget de TradingView para Bonos (Riesgo País o Bonos Globales)
@@ -138,4 +143,5 @@ with tab3:
           </script>
         </div>"""
         components.html(tv_bonos, height=420)
+
 
