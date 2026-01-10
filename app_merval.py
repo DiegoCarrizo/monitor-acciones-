@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px  
+import plotly.express as px  # <-- ESTA ES LA LÍNEA QUE FALTA
 import streamlit as st
 
 # 1. Configuración de página
@@ -241,3 +241,4 @@ with tab4:
     st.markdown("---")
     st.write("### 📊 Matriz de Decisión Detallada")
     st.dataframe(df_q, use_container_width=True, hide_index=True)
+
