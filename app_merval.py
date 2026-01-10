@@ -86,62 +86,51 @@ with tab2:
 
 # --- PESTAÑA 3: TASAS Y BONOS (BYMA INTEGRADO) ---
 with tab3:
-   with tab3:
-    st.subheader("🏦 Estructura Temporal de Tasas")
+    st.subheader("🏦 Mercado de Deuda y Tasas BNA")
     
-    # 1. Definimos los datos de la curva
-    df_curva = pd.DataFrame({
-        'Ticker': ['S31M6', 'S30J6', 'S29A6', 'S30S6', 'T2X6', 'AL30', 'GD30'],
-        'Plazo_Meses': [3, 6, 8, 9, 10, 48, 52], 
-        'TEM': [3.80, 3.92, 4.10, 4.25, 4.40, 5.10, 4.90] 
-    }).sort_values('Plazo_Meses')
+    # --- ESTA ES LA LÍNEA QUE FALTA PARA EVITAR EL NAMEERROR ---
+    c1, c2 = st.columns(2) 
+    # -----------------------------------------------------------
 
-    # 2. Creamos las columnas para organizar la pantalla
-    col1, col2 = st.columns([1, 2]) # Aquí definimos col1 y col2 para evitar el NameError
+    with c1:
+        st.metric("Tasa Plazo Fijo BNA (Mensual)", "3.20%")
+        # Tu tabla de LECAPS que ya tenías
+        df_lecaps = pd.DataFrame({
+            "Ticker": ["S31M6", "S30J6", "S29A6", "TO26"],
+            "Vencimiento": ["Mar-26", "Jun-26", "Ago-26", "Oct-26"],
+            "TEM %": [3.80, 3.92, 4.10, 4.50]
+        })
+        st.write("**Panel de Lecaps / Boncaps**")
+        st.table(df_lecaps)
+        
+    with c2:
+        st.write("### Curva de Rendimientos (Yield Curve)")
+        
+        # Datos para graficar la curva
+        df_curva = pd.DataFrame({
+            'Plazo': [3, 6, 8, 10], 
+            'TEM': [3.80, 3.92, 4.10, 4.50],
+            'Ticker': ["S31M6", "S30J6", "S29A6", "TO26"]
+        })
 
-    with col1:
-        st.write("**Detalle de Tasas**")
-        st.dataframe(df_curva, hide_index=True)
-
-    with col2:
-        # Gráfico interactivo de la Curva
+        # Gráfico de la curva
         fig_curva = go.Figure()
         fig_curva.add_trace(go.Scatter(
-            x=df_curva['Plazo_Meses'], 
+            x=df_curva['Plazo'], 
             y=df_curva['TEM'],
             mode='lines+markers+text',
             text=df_curva['Ticker'],
             textposition="top center",
-            line=dict(color='#f1c40f', width=3),
-            marker=dict(size=10, color='#f39c12', symbol='diamond')
+            line=dict(color='#f1c40f', width=2),
+            marker=dict(size=8, color='#f39c12')
         ))
 
         fig_curva.update_layout(
             template="plotly_dark",
-            xaxis_title="Plazo (Meses)",
+            height=300,
+            margin=dict(l=10, r=10, t=10, b=10),
+            xaxis_title="Meses",
             yaxis_title="TEM %",
-            height=400,
-            margin=dict(l=10, r=10, t=30, b=10),
             showlegend=False
         )
         st.plotly_chart(fig_curva, use_container_width=True)
-        
-    with c2:
-        # Widget de TradingView para Bonos (Riesgo País o Bonos Globales)
-        st.write("### Curva de Bonos (BYMA/MAE)")
-        tv_bonos = """
-        <div class="tradingview-widget-container">
-          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js" async>
-          {
-            "colorTheme": "light", "dateRange": "12M", "showChart": true, "width": "100%",
-            "height": 400, "largeChartHeight": 300, "plotLineColorGrowing": "rgba(41, 98, 255, 1)",
-            "symbols": [
-              { "proName": "BCBA:AL30", "title": "Bono AL30" },
-              { "proName": "BCBA:GD30", "title": "Bono GD30" }
-            ]
-          }
-          </script>
-        </div>"""
-        components.html(tv_bonos, height=420)
-
-
