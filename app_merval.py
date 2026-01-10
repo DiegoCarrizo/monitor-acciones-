@@ -135,53 +135,66 @@ with tab3:
         )
         st.plotly_chart(fig_curva, use_container_width=True)
 
-# --- SECCIÓN DE TASAS GLOBALES (TRADINGVIEW) ---
+# --- TASAS GLOBALES EN VIVO (TRADINGVIEW TICKER) ---
     st.markdown("---")
-    st.subheader("🌍 Tasas de Referencia Global (Real-time)")
+    st.subheader("🌍 Monitor de Tasas y Rendimientos Globales")
 
-    # Usamos componentes de HTML para embeber el widget de TradingView
     import streamlit.components.v1 as components
 
-    # Definimos el HTML del widget de TradingView
-    tv_widget_html = """
+    # HTML del Widget Ticker Tape (Muestra el rendimiento/yield directamente)
+    tv_ticker_html = """
     <div class="tradingview-widget-container">
       <div class="tradingview-widget-container__widget"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js" async>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-tickers.js" async>
       {
+      "symbols": [
+        { "proName": "TVC:US10Y", "title": "Bono EE.UU. 10Y (Yield)" },
+        { "proName": "TVC:US02Y", "title": "Bono EE.UU. 2Y (Yield)" },
+        { "proName": "TVC:DE10Y", "title": "Bono Alemania 10Y" },
+        { "proName": "TVC:BR10Y", "title": "Bono Brasil 10Y" },
+        { "proName": "CURRENCYCOM:UK10Y", "title": "Bono R.Unido 10Y" },
+        { "proName": "FOREXCOM:SPXUSD", "title": "S&P 500" },
+        { "proName": "FOREXCOM:NSXUSD", "title": "Nasdaq 100" }
+      ],
       "colorTheme": "dark",
-      "dateRange": "12M",
-      "showChart": false,
-      "locale": "es",
-      "largeChartUrl": "",
       "isTransparent": true,
       "showSymbolLogo": true,
-      "showFloatingTooltip": false,
-      "width": "100%",
-      "height": "400",
-      "tabs": [
-        {
-          "title": "Bonos Globales",
-          "symbols": [
-            { "s": "TVC:US10Y", "d": "EE.UU. 10 Años" },
-            { "s": "TVC:DE10Y", "d": "Alemania 10 Años" },
-            { "s": "TVC:JP10Y", "d": "Japón 10 Años" },
-            { "s": "TVC:GB10Y", "d": "Reino Unido 10 Años" },
-            { "s": "TVC:BR10Y", "d": "Brasil 10 Años" }
-          ]
-        },
-        {
-          "title": "Índices",
-          "symbols": [
-            { "s": "FOREXCOM:SPXUSD", "d": "S&P 500" },
-            { "s": "FOREXCOM:NSXUSD", "d": "Nasdaq 100" },
-            { "s": "BITSTAMP:BTCUSD", "d": "Bitcoin" }
-          ]
-        }
-      ]
+      "locale": "es"
     }
       </script>
     </div>
     """
 
-    # Renderizamos el widget en Streamlit
-    components.html(tv_widget_html, height=450)
+    # Renderizamos el widget (ajustamos la altura para que se vea la lista)
+    components.html(tv_ticker_html, height=100)
+
+    # Si prefieres una lista más grande y estática en lugar de la cinta, usa este otro widget:
+    tv_market_list_html = """
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js" async>
+      {
+      "width": "100%",
+      "height": 450,
+      "symbolsGroups": [
+        {
+          "name": "Bonos Soberanos (Yields)",
+          "originalName": "Bonds",
+          "symbols": [
+            { "name": "TVC:US10Y", "displayName": "EE.UU. 10 Años" },
+            { "name": "TVC:US02Y", "displayName": "EE.UU. 2 Años" },
+            { "name": "TVC:DE10Y", "displayName": "Alemania 10 Años" },
+            { "name": "TVC:BR10Y", "displayName": "Brasil 10 Años" },
+            { "name": "TVC:JP10Y", "displayName": "Japón 10 Años" }
+          ]
+        }
+      ],
+      "showSymbolLogo": true,
+      "colorTheme": "dark",
+      "isTransparent": true,
+      "locale": "es"
+    }
+      </script>
+    </div>
+    """
+    components.html(tv_market_list_html, height=480)
