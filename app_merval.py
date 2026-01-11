@@ -47,7 +47,7 @@ with tab1:
     @st.cache_data(ttl=600)
     def obtener_analisis_profundo(lista_tickers):
         data_resumen = []
-        # Descargamos suficiente historial para la media de 200 (mínimo 260 días hábiles)
+        # Descargamos historial suficiente para la media de 200
         df_hist = yf.download(lista_tickers, period="2y", interval="1d")['Close']
         
         for t in lista_tickers:
@@ -66,18 +66,18 @@ with tab1:
                     dist_sma200 = ((precio_actual / sma_200) - 1) * 100
                     tendencia_largo = "📈 BULL" if precio_actual > sma_200 else "📉 BEAR"
                     
-                    # --- ANÁLISIS FUNDAMENTAL (Múltiplos) ---
+                    # --- ANÁLISIS FUNDAMENTAL ---
                     per = info.get('trailingPE', 0)
                     pb = info.get('priceToBook', 0)
-                    mkt_cap = info.get('marketCap', 0) / 1e9 # En Billones
+                    mkt_cap = info.get('marketCap', 0) / 1e9 
                     
                     data_resumen.append({
                         'Activo': tickers_dict[t],
                         'Ticker': t.replace(".BA", ""),
                         'Precio': round(precio_actual, 2),
                         'Var %': round(var_diaria, 2),
-                        'PER (Múltiplo)': round(per, 2) if per > 0 else "N/A",
-                        'P/B (Valuación)': round(pb, 2) if pb > 0 else "N/A",
+                        'PER': round(per, 2) if per and per > 0 else "N/A",
+                        'P/B': round(pb, 2) if pb and pb > 0 else "N/A",
                         'Tendencia 200d': tendencia_largo,
                         'Dist. SMA200': f"{dist_sma200:.1f}%",
                         'Mkt Cap (Bn)': f"{mkt_cap:.2f}"
@@ -86,34 +86,37 @@ with tab1:
                 continue
         return pd.DataFrame(data_resumen)
 
-    with st.spinner('Realizando valuación por múltiplos y medias móviles...'):
+    with st.spinner('Analizando fundamentales y medias móviles...'):
         df_final_pro = obtener_analisis_profundo(list(tickers_dict.keys()))
 
-    # --- BUSCADOR ---
-    busqueda = st.text_input("🔍 Filtrar por activo...")
-    if busqueda:
-        df_final_pro = df_final_pro[df_final_pro['Activo'].str.contains(busqueda, case=False) | df_final_pro['Ticker'].str.contains(busqueda, case=False)]
+    if not df_final_pro.empty:
+        # Buscador
+        busqueda = st.text_input("🔍 Buscar activo...")
+        if busqueda:
+            df_final_pro = df_final_pro[df_final_pro['Activo'].str.contains(busqueda, case=False) | df_final_pro['Ticker'].str.contains(busqueda, case=False)]
 
-    # --- ESTILADO ---
-    def color_variacion(val):
-        if isinstance(val, float):
-            color = '#27ae60' if val > 0 else '#e74c3c'
-            return f'color: {color}; font-weight: bold'
-        return ''
+        # --- APLICACIÓN DE ESTILOS CORREGIDA ---
+        def style_positive_negative(val):
+            if isinstance(val, (int, float)):
+                color = '#27ae60' if val > 0 else '#e74c3c'
+                return f'color: {color}; font-weight: bold'
+            return ''
 
-    def color_tendencia(val):
-        color = '#2ecc71' if "BULL" in val else '#e74c3c'
-        return f'background-color: {color}; color: white; font-weight: bold; border-radius: 5px;'
+        def style_trend(val):
+            color = '#2ecc71' if "BULL" in val else '#e74c3c'
+            return f'background-color: {color}; color: white; font-weight: bold'
 
-    st.dataframe(
-        df_final_pro.style.applymap(color_variacion, subset=['Var %'])
-                          .applymap(color_tendencia, subset=['Tendencia 200d']),
-        use_container_width=True,
-        hide_index=True
-    )
+        # Aquí es donde estaba el error de sintaxis, ahora está cerrado correctamente
+        st.dataframe(
+            df_final_pro.style.applymap(style_positive_negative, subset=['Var %'])
+            .applymap(style_trend, subset=['Tendencia 200d']),
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.warning("No se pudieron cargar los datos. Reintente en unos instantes.")
 
-    st.caption("PER: Relación Precio/Ganancia. P/B: Relación Precio/Valor Libros. SMA200: Media Móvil Simple de 200 días.")
-    )
+    st.caption("PER: Price/Earnings | P/B: Price/Book | SMA200: Media de 200 ruedas.")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Desinflación 2025-2026")
@@ -387,6 +390,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
