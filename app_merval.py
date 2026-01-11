@@ -201,102 +201,87 @@ with tab3:
     """
     components.html(tv_no_block_widget, height=620)
 
+import yfinance as yf
+
 with tab4:
-    st.subheader("🤖 Explorador Quant Multimercado")
+    st.subheader("🤖 Explorador Quant Automatizado (Live Data)")
 
-    # 1. BASE DE DATOS AMPLIADA (Merval + USA)
-    data_full = {
-        'Ticker': [
-            'YPFD', 'PAMP', 'GGAL', 'BMA', 'EDN', 'CEPU', 'LOMA', 'ALUA',  # Merval
-            'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'KO' # EE.UU.
-        ],
-        'Mercado': [
-            '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval', '🇦🇷 Merval',
-            '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA', '🇺🇸 USA'
-        ],
-        'Momentum (30d)': [12.5, 8.2, 15.1, 14.2, -2.1, 5.4, 1.2, 3.5, 5.2, 4.8, 2.1, 6.4, -10.2, 18.5, 7.2, 1.5],
-        'Volatilidad %': [22, 18, 25, 24, 30, 19, 15, 12, 14, 13, 16, 18, 45, 35, 20, 10],
-        'RSI (14d)': [68, 55, 72, 65, 38, 52, 48, 45, 58, 62, 51, 64, 32, 75, 66, 54]
+    # 1. LISTA DE TICKERS (Merval y USA)
+    # Usamos los tickers de Yahoo Finance (.BA para Argentina)
+    tickers_dict = {
+        'YPFD.BA': '🇦🇷 YPF', 'PAMP.BA': '🇦🇷 Pampa Energía', 'GGAL.BA': '🇦🇷 Grupo Galicia', 
+        'AAPL': '🇺🇸 Apple', 'MSFT': '🇺🇸 Microsoft', 'NVDA': '🇺🇸 NVIDIA', 'TSLA': '🇺🇸 Tesla',
+        'KO': '🇺🇸 Coca-Cola', 'MELI': '🇺🇸 Mercado Libre', 'BMA.BA': '🇦🇷 Banco Macro'
     }
-    df_full = pd.DataFrame(data_full)
 
-    # Cálculo del Score Quant
-    df_full['Score Quant'] = ((df_full['Momentum (30d)'] * 2) + (100 - df_full['Volatilidad %']) + (df_full['RSI (14d)'] * 0.5)).clip(0, 100).round(1)
-    
-    def get_reco(s):
-        if s > 75: return "🔥 Compra Fuerte"
-        if s > 60: return "✅ Compra"
-        if s > 40: return "🟡 Neutral"
-        return "🚨 Evitar"
-    
-    df_full['Recomendación'] = df_full['Score Quant'].apply(get_reco)
+    @st.cache_data(ttl=3600) # Cache por 1 hora para no saturar la API
+    def descargar_datos_quant(lista_tickers):
+        data = yf.download(lista_tickers, period="60d", interval="1d")['Close']
+        return data
 
-    # 2. SELECTORES DE MERCADO Y ACCIÓN
-    col_sel1, col_sel2 = st.columns(2)
-    with col_sel1:
-        mercado_f = st.selectbox("🌎 Seleccione Mercado:", df_full['Mercado'].unique())
-    with col_sel2:
-        ticker_f = st.selectbox("🔍 Seleccione Activo:", df_full[df_full['Mercado'] == mercado_f]['Ticker'].sort_values())
+    with st.spinner('Calculando métricas en tiempo real...'):
+        precios_q = descargar_datos_quant(list(tickers_dict.keys()))
+        
+        resultados = []
+        for t in tickers_dict.keys():
+            try:
+                serie = precios_q[t].dropna()
+                # Cálculo de Métricas
+                momentum = ((serie.iloc[-1] / serie.iloc[-20]) - 1) * 100 # 20 días
+                volatilidad = serie.pct_change().std() * np.sqrt(252) * 100
+                
+                # RSI simple
+                delta = serie.diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs.iloc[-1]))
 
-    # 3. FICHA TÉCNICA DEL ACTIVO
-    row = df_full[df_full['Ticker'] == ticker_f].iloc[0]
-    
-    st.markdown(f"### Análisis de {ticker_f} ({mercado_f})")
-    c1, c2, c3 = st.columns([1,1,2])
-    
-    with c1:
-        st.metric("Score Quant", f"{row['Score Quant']} pts")
-    with c2:
-        st.write("**Recomendación:**")
-        st.markdown(f"#### {row['Recomendación']}")
-    with c3:
-        # Mini indicador visual de RSI
-        rsi_val = row['RSI (14d)']
-        st.write(f"**RSI (14d):** {rsi_val}")
-        st.progress(int(rsi_val))
+                # Algoritmo de Score
+                score = ((momentum * 2) + (100 - volatilidad) + (rsi * 0.5))
+                score = round(max(0, min(100, score)), 1)
 
-    # 4. TABLA COMPARATIVA POR MERCADO
-    st.markdown("---")
-    st.write(f"### 📊 Ranking Oportunidad: {mercado_f}")
-    
-    df_tabla = df_full[df_full['Mercado'] == mercado_f].sort_values('Score Quant', ascending=False)
-    
-    def color_reco(val):
-        color = '#27ae60' if "Fuerte" in val else '#2ecc71' if "Compra" in val else '#f39c12' if "Neutral" in val else '#e74c3c'
-        return f'background-color: {color}; color: white; font-weight: bold'
+                resultados.append({
+                    'Ticker': tickers_dict[t],
+                    'Símbolo': t,
+                    'Score': score,
+                    'Momentum': round(momentum, 1),
+                    'RSI': round(rsi, 1),
+                    'Volat': round(volatilidad, 1)
+                })
+            except:
+                continue
 
-    st.dataframe(df_tabla.style.applymap(color_reco, subset=['Recomendación']),
-                 use_container_width=True, hide_index=True)
+        df_quant_live = pd.DataFrame(resultados)
 
-    # 3. FICHA TÉCNICA DEL ACTIVO
-    row = df_full[df_full['Ticker'] == ticker_f].iloc[0]
-    
-    st.markdown(f"### Análisis de {ticker_f} ({mercado_f})")
-    c1, c2, c3 = st.columns([1,1,2])
-    
-    with c1:
-        st.metric("Score Quant", f"{row['Score Quant']} pts")
-    with c2:
-        st.write("**Recomendación:**")
-        st.markdown(f"#### {row['Recomendación']}")
-    with c3:
-        # Mini indicador visual de RSI
-        rsi_val = row['RSI (14d)']
-        st.write(f"**RSI (14d):** {rsi_val}")
-        st.progress(int(rsi_val))
+    # 2. SELECTOR Y ANÁLISIS
+    if not df_quant_live.empty:
+        df_quant_live['Recomendación'] = df_quant_live['Score'].apply(lambda x: "🔥 Compra Fuerte" if x > 75 else "✅ Compra" if x > 60 else "🟡 Neutral" if x > 40 else "🚨 Evitar")
+        
+        sel_q = st.selectbox("🔍 Seleccione Activo para Análisis Profundo:", df_quant_live['Ticker'])
+        row_q = df_quant_live[df_quant_live['Ticker'] == sel_q].iloc[0]
 
-    # 4. TABLA COMPARATIVA POR MERCADO
-    st.markdown("---")
-    st.write(f"### 📊 Ranking Oportunidad: {mercado_f}")
-    
-    df_tabla = df_full[df_full['Mercado'] == mercado_f].sort_values('Score Quant', ascending=False)
-    
-    def color_reco(val):
-        color = '#27ae60' if "Fuerte" in val else '#2ecc71' if "Compra" in val else '#f39c12' if "Neutral" in val else '#e74c3c'
-        return f'background-color: {color}; color: white; font-weight: bold'
+        # Ficha técnica
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Score Quant", f"{row_q['Score']} pts")
+        c2.metric("Momentum (20d)", f"{row_q['Momentum']}%")
+        c3.metric("RSI (14d)", f"{row_q['RSI']}")
 
-    st.dataframe(df_tabla.style.applymap(color_reco, subset=['Recomendación']),
-                 use_container_width=True, hide_index=True)
+        st.markdown(f"**Recomendación Actual: {row_q['Recomendación']}**")
+        st.progress(int(row_q['Score']))
+
+        # 3. TABLA GENERAL
+        st.markdown("---")
+        st.write("### 📊 Ranking General por Score Quant")
+        
+        def estilo_reco(val):
+            color = '#27ae60' if "Fuerte" in val else '#2ecc71' if "Compra" in val else '#f39c12' if "Neutral" in val else '#e74c3c'
+            return f'background-color: {color}; color: white; font-weight: bold'
+
+        st.dataframe(df_quant_live.sort_values('Score', ascending=False).style.applymap(estilo_reco, subset=['Recomendación']),
+                     use_container_width=True, hide_index=True)
+    else:
+        st.error("No se pudieron cargar los datos de mercado.")
 with tab5:
     st.subheader("📉 Riesgo País Argentina (EMBI+ J.P. Morgan)")
     
@@ -337,6 +322,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
