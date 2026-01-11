@@ -267,6 +267,36 @@ with tab4:
 
     st.dataframe(df_tabla.style.applymap(color_reco, subset=['Recomendación']),
                  use_container_width=True, hide_index=True)
+
+    # 3. FICHA TÉCNICA DEL ACTIVO
+    row = df_full[df_full['Ticker'] == ticker_f].iloc[0]
+    
+    st.markdown(f"### Análisis de {ticker_f} ({mercado_f})")
+    c1, c2, c3 = st.columns([1,1,2])
+    
+    with c1:
+        st.metric("Score Quant", f"{row['Score Quant']} pts")
+    with c2:
+        st.write("**Recomendación:**")
+        st.markdown(f"#### {row['Recomendación']}")
+    with c3:
+        # Mini indicador visual de RSI
+        rsi_val = row['RSI (14d)']
+        st.write(f"**RSI (14d):** {rsi_val}")
+        st.progress(int(rsi_val))
+
+    # 4. TABLA COMPARATIVA POR MERCADO
+    st.markdown("---")
+    st.write(f"### 📊 Ranking Oportunidad: {mercado_f}")
+    
+    df_tabla = df_full[df_full['Mercado'] == mercado_f].sort_values('Score Quant', ascending=False)
+    
+    def color_reco(val):
+        color = '#27ae60' if "Fuerte" in val else '#2ecc71' if "Compra" in val else '#f39c12' if "Neutral" in val else '#e74c3c'
+        return f'background-color: {color}; color: white; font-weight: bold'
+
+    st.dataframe(df_tabla.style.applymap(color_reco, subset=['Recomendación']),
+                 use_container_width=True, hide_index=True)
 with tab5:
     st.subheader("📉 Riesgo País Argentina (EMBI+ J.P. Morgan)")
     
@@ -307,6 +337,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
