@@ -186,90 +186,86 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 
-# --- 1. CONFIGURACIÓN DE DATOS Y TASAS ---
-# Inflación esperada (podés actualizar este valor mensualmente según el REM del BCRA)
-inflacion_mensual_estimada = 3.0 
-
-@st.cache_data(ttl=3600) # Se actualiza cada 1 hora automáticamente
-def obtener_datos_curva():
-    # Sincronización total de 17 instrumentos
-    datos = {
-        'Ticker': ["S17E6", "M16E6", "M13F6", "M27F6", "T31F6", "S31M6", "M30A6", "S30A6", "S29Y6", "S30J6", "M31G6", "S31G6", "S29A6", "S30O6", "S30N6", "TO26", "S16E6"],
-        'Plazo_Meses': [0.5, 0.5, 1.0, 1.5, 1.5, 3.0, 4.0, 4.0, 5.0, 6.0, 7.0, 7.0, 8.0, 10.0, 11.0, 10.0, 0.2],
-        'TEM': [2.7, 2.8, 2.9, 3.0, 2.9, 3.1, 3.1, 3.1, 3.2, 3.2, 3.3, 3.2, 3.4, 3.4, 3.5, 3.8, 2.6]
-    }
-    df = pd.DataFrame(datos)
-    return df.sort_values('Plazo_Meses')
-
-# --- 2. PROCESAMIENTO ---
-df_curva = obtener_datos_curva()
-
+# --- PESTAÑA 3: ESTRUCTURA DE TASAS ---
 with tab3:
-    st.subheader("🏦 Estructura Temporal de Tasas (Yield Curve)")
-    st.caption("Actualización automática al cierre de mercado (vía Cache 1h)")
+    st.subheader("🏦 Curva de Rendimientos (Promedio) vs. Inflación")
+
+    # 1. OBTENER INFLACIÓN DESDE TU TABLA EXISTENTE
+    # Asumiendo que tenés una variable o DataFrame llamado 'df_inflacion'
+    # Si no, usamos el valor de tu tabla:
+    inflacion_referencia = 3.0  # <--- Cambia esto por: df_inflacion['Valor'].iloc[0] si ya la tenés
     
-    # --- 3. GENERACIÓN DEL GRÁFICO INTERACTIVO ---
+    @st.cache_data(ttl=3600)
+    def procesar_curva_promedio():
+        datos = {
+            'Ticker': ["S17E6", "M16E6", "M13F6", "M27F6", "T31F6", "S31M6", "M30A6", "S30A6", "S29Y6", "S30J6", "M31G6", "S31G6", "S29A6", "S30O6", "S30N6", "TO26", "S16E6"],
+            'Plazo_Meses': [0.5, 0.5, 1.0, 1.5, 1.5, 3.0, 4.0, 4.0, 5.0, 6.0, 7.0, 7.0, 8.0, 10.0, 11.0, 10.0, 0.2],
+            'TEM': [2.7, 2.8, 2.9, 3.0, 2.9, 3.1, 3.1, 3.1, 3.2, 3.2, 3.3, 3.2, 3.4, 3.4, 3.5, 3.8, 2.6]
+        }
+        df = pd.DataFrame(datos)
+        
+        # CALCULAMOS EL PROMEDIO POR PLAZO
+        # Esto hace que si hay dos bonos a 4 meses, la línea pase por el medio
+        df_promedio = df.groupby('Plazo_Meses')['TEM'].mean().reset_index()
+        return df, df_promedio
+
+    df_original, df_linea = procesar_curva_promedio()
+
+    # 2. GRÁFICO CON LÍNEA DE PROMEDIO
     fig_curva = go.Figure()
 
-    # Línea de la Curva Soberana
+    # Puntos individuales (Dispersión)
     fig_curva.add_trace(go.Scatter(
-        x=df_curva['Plazo_Meses'], 
-        y=df_curva['TEM'],
-        mode='lines+markers+text',
-        name='Curva Lecaps/Bonos',
-        text=df_curva['Ticker'],
-        textposition="top center",
-        line=dict(color='#f1c40f', width=3),
-        marker=dict(size=10, color='#f39c12', symbol='diamond'),
-        hovertemplate="<b>%{text}</b><br>Plazo: %{x} meses<br>TEM: %{y}%<extra></extra>"
+        x=df_original['Plazo_Meses'], y=df_original['TEM'],
+        mode='markers',
+        name='Instrumentos',
+        marker=dict(color='#3498db', size=8),
+        text=df_original['Ticker'],
+        hovertemplate="<b>%{text}</b><br>Tasa: %{y}%<extra></extra>"
     ))
 
-    # LÍNEA DE INFLACIÓN (Referencia de Tasa Real)
+    # Línea de Tendencia (Promedio)
+    fig_curva.add_trace(go.Scatter(
+        x=df_linea['Plazo_Meses'], y=df_linea['TEM'],
+        mode='lines',
+        name='Curva Promedio',
+        line=dict(color='#f1c40f', width=4, shape='spline'), # Spline la hace curva suave
+    ))
+
+    # Línea de Inflación Esperada (Desde tu tabla)
     fig_curva.add_hline(
-        y=inflacion_mensual_estimada, 
+        y=inflacion_referencia, 
         line_dash="dash", 
         line_color="#e74c3c",
-        annotation_text=f"Inflación Esperada ({inflacion_mensual_estimada}%)", 
-        annotation_position="bottom right"
+        annotation_text=f"Inflación Proyectada ({inflacion_referencia}%)",
+        annotation_position="top left"
     )
 
-    # Configuración de layout
     fig_curva.update_layout(
         template="plotly_dark",
-        xaxis_title="Plazo (Meses al vencimiento)",
-        yaxis_title="Retorno (TEM %)",
-        height=550,
-        hovermode="x unified",
-        showlegend=True
+        xaxis_title="Meses al Vencimiento",
+        yaxis_title="TEM %",
+        height=500,
+        hovermode="closest"
     )
 
-    # Mostrar gráfico
     st.plotly_chart(fig_curva, use_container_width=True)
 
-    # --- 4. MÉTRICAS DE CIERRE ---
-    c1, c2, c3 = st.columns(3)
-    tasa_max = df_curva['TEM'].max()
-    tasa_min = df_curva['TEM'].min()
+    # 3. TABLA DE DATOS (SIN MATPLOTLIB)
+    st.markdown("### 📋 Comparativa de Tasas Reales")
     
-    c1.metric("TEM Máxima", f"{tasa_max}%", "TO26")
-    c2.metric("TEM Mínima", f"{tasa_min}%", "Corto Plazo")
-    c3.metric("Spread vs Inflación", f"{round(tasa_max - inflacion_mensual_estimada, 2)}%", "Puntos reales")
-
-   # --- 5. TABLA DE REFERENCIA (VERSIÓN SEGURA) ---
-    st.markdown("### 📋 Detalle de Instrumentos al Cierre")
+    # Calculamos el Spread real vs Inflación
+    df_original['Spread vs Infla'] = df_original['TEM'] - inflacion_referencia
     
-    # Formateamos los números para que tengan el símbolo % y 2 decimales
-    df_mostrar = df_curva.copy()
-    
-    # Mostramos la tabla con un formato profesional y limpio
     st.dataframe(
-        df_mostrar,
+        df_original.sort_values('Plazo_Meses'),
         column_config={
-            "Ticker": st.column_config.TextColumn("Instrumento"),
-            "Plazo_Meses": st.column_config.NumberColumn("Plazo (Meses)", format="%.1f"),
-            "TEM": st.column_config.NumberColumn("Tasa Mensual", format="%.2f%%")
+            "Ticker": "Ticker",
+            "Plazo_Meses": st.column_config.NumberColumn("Meses", format="%.1f"),
+            "TEM": st.column_config.NumberColumn("TEM", format="%.2f%%"),
+            "Spread vs Infla": st.column_config.NumberColumn("Tasa Real", format="%.2f%%")
         },
-        use_container_width=True, 
+        use_container_width=True,
         hide_index=True
     )
 
@@ -484,6 +480,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
