@@ -208,11 +208,15 @@ with tab3:
             'Plazo': [3, 6, 8, 10], 
             'TEM': [3.80, 3.92, 4.10, 4.50],
             
-      df_curva = pd.DataFrame({
+      # --- BLOQUE DE TASAS CORREGIDO ---
+        datos_tasas = {
             'Ticker': ["S31M6", "S30J6", "S29A6", "TO26", "M13F6", "M16E6", "M27F6", "M30A6", "M31G6", "S17E6", "S27F6", "S29Y6", "S30A6", "S30N6", "S30O6", "S31G6", "T31F6"],
             'Vencimiento': ["2026-03-31", "2026-06-30", "2026-08-29", "2026-10-17", "2026-02-13", "2026-01-16", "2026-02-27", "2026-04-30", "2026-07-31", "2026-01-17", "2026-02-27", "2026-05-29", "2026-04-30", "2026-11-30", "2026-10-30", "2026-07-31", "2026-02-28"],
             'TEM %': [3.1, 3.2, 3.4, 3.8, 2.9, 2.8, 3.0, 3.1, 3.3, 2.7, 3.0, 3.2, 3.1, 3.5, 3.4, 3.2, 2.9]
-        }) # <--- Verifica que esta llave y paréntesis estén presentes
+        }
+        
+        df_curva = pd.DataFrame(datos_tasas)
+        # --- FIN DEL BLOQUE ---
 
         # Gráfico de la curva
         fig_curva = go.Figure()
@@ -443,6 +447,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
