@@ -206,12 +206,47 @@ import yfinance as yf
 with tab4:
     st.subheader("🤖 Explorador Quant Automatizado (Live Data)")
 
-    # 1. LISTA DE TICKERS (Merval y USA)
-    # Usamos los tickers de Yahoo Finance (.BA para Argentina)
+   # 1. LISTA DE TICKERS COMPLETA (Merval y USA)
+    # Se utiliza el sufijo .BA para activos locales y el ticker original para USA
     tickers_dict = {
-        'YPFD.BA': '🇦🇷 YPF', 'PAMP.BA': '🇦🇷 Pampa Energía', 'GGAL.BA': '🇦🇷 Grupo Galicia', 
-        'AAPL': '🇺🇸 Apple', 'MSFT': '🇺🇸 Microsoft', 'NVDA': '🇺🇸 NVIDIA', 'TSLA': '🇺🇸 Tesla',
-        'KO': '🇺🇸 Coca-Cola', 'MELI': '🇺🇸 Mercado Libre', 'BMA.BA': '🇦🇷 Banco Macro'
+        # --- PANEL LÍDER ARGENTINA ---
+        'ALUA.BA': '🇦🇷 Aluar',
+        'BBAR.BA': '🇦🇷 BBVA Francés',
+        'BMA.BA': '🇦🇷 Banco Macro',
+        'BYMA.BA': '🇦🇷 BYMA',
+        'CEPU.BA': '🇦🇷 Central Puerto',
+        'COME.BA': '🇦🇷 Sociedad Comercial del Plata',
+        'EDN.BA': '🇦🇷 Edenor',
+        'GGAL.BA': '🇦🇷 Grupo Galicia',
+        'LOMA.BA': '🇦🇷 Loma Negra',
+        'METR.BA': '🇦🇷 Metrogas',
+        'PAMP.BA': '🇦🇷 Pampa Energía',
+        'SUPV.BA': '🇦🇷 Grupo Supervielle',
+        'TECO2.BA': '🇦🇷 Telecom Argentina',
+        'TGNO4.BA': '🇦🇷 TGN',
+        'TGSU2.BA': '🇦🇷 TGS',
+        'TRAN.BA': '🇦🇷 Transener',
+        'TXAR.BA': '🇦🇷 Ternium Argentina',
+        'YPFD.BA': '🇦🇷 YPF',
+        
+        # --- ACCIONES USA / CEDEARS ---
+        'AAPL': '🇺🇸 Apple',
+        'AMZN': '🇺🇸 Amazon',
+        'BRK-B': '🇺🇸 Berkshire Hathaway',
+        'GOOGL': '🇺🇸 Alphabet (Google)',
+        'META': '🇺🇸 Meta (Facebook)',
+        'MSFT': '🇺🇸 Microsoft',
+        'NFLX': '🇺🇸 Netflix',
+        'NVDA': '🇺🇸 NVIDIA',
+        'TSLA': '🇺🇸 Tesla',
+        'KO': '🇺🇸 Coca-Cola',
+        'PEP': '🇺🇸 PepsiCo',
+        'MELI': '🇺🇸 Mercado Libre',
+        'PYPL': '🇺🇸 PayPal',
+        'V': '🇺🇸 Visa',
+        'JPM': '🇺🇸 JP Morgan',
+        'GOLD': '🇺🇸 Barrick Gold',
+        'XOM': '🇺🇸 Exxon Mobil'
     }
 
     @st.cache_data(ttl=3600) # Cache por 1 hora para no saturar la API
@@ -322,6 +357,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
