@@ -255,10 +255,20 @@ with tab3:
     c2.metric("TEM Mínima", f"{tasa_min}%", "Corto Plazo")
     c3.metric("Spread vs Inflación", f"{round(tasa_max - inflacion_mensual_estimada, 2)}%", "Puntos reales")
 
-    # --- 5. TABLA DE REFERENCIA ---
+   # --- 5. TABLA DE REFERENCIA (VERSIÓN SEGURA) ---
     st.markdown("### 📋 Detalle de Instrumentos al Cierre")
+    
+    # Formateamos los números para que tengan el símbolo % y 2 decimales
+    df_mostrar = df_curva.copy()
+    
+    # Mostramos la tabla con un formato profesional y limpio
     st.dataframe(
-        df_curva.style.background_gradient(subset=['TEM'], cmap='YlGn'),
+        df_mostrar,
+        column_config={
+            "Ticker": st.column_config.TextColumn("Instrumento"),
+            "Plazo_Meses": st.column_config.NumberColumn("Plazo (Meses)", format="%.1f"),
+            "TEM": st.column_config.NumberColumn("Tasa Mensual", format="%.2f%%")
+        },
         use_container_width=True, 
         hide_index=True
     )
@@ -474,6 +484,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
