@@ -185,56 +185,29 @@ with tab2:
 with tab3:
     st.subheader("🏦 Mercado de Deuda y Tasas BNA")
     
-    # --- ESTA ES LA LÍNEA QUE FALTA PARA EVITAR EL NAMEERROR ---
-    c1, c2 = st.columns(2) 
-    # -----------------------------------------------------------
+  # --- SOLUCIÓN FINAL SIN ERRORES DE LLAVES ---
+        # 1. Definimos listas simples (esto no falla nunca)
+        t_nombres = ["S31M6", "S30J6", "S29A6", "TO26", "M13F6", "M16E6", "M27F6", "M30A6", "M31G6", "S17E6", "S27F6", "S29Y6", "S30A6", "S30N6", "S30O6", "S31G6", "T31F6"]
+        
+        t_vencimientos = ["2026-03-31", "2026-06-30", "2026-08-29", "2026-10-17", "2026-02-13", "2026-01-16", "2026-02-27", "2026-04-30", "2026-07-31", "2026-01-17", "2026-02-27", "2026-05-29", "2026-04-30", "2026-11-30", "2026-10-30", "2026-07-31", "2026-02-28"]
+        
+        t_tasas = [3.1, 3.2, 3.4, 3.8, 2.9, 2.8, 3.0, 3.1, 3.3, 2.7, 3.0, 3.2, 3.1, 3.5, 3.4, 3.2, 2.9]
 
-    with c1:
-        st.metric("Tasa Plazo Fijo BNA (Mensual)", "3.20%")
-        # Tu tabla de LECAPS que ya tenías
-        df_lecaps = pd.DataFrame({
-            "Ticker": ["S31M6", "S30J6", "S29A6", "TO26"],
-            "Vencimiento": ["Mar-26", "Jun-26", "Ago-26", "Oct-26"],
-            "TEM %": [3.80, 3.92, 4.10, 4.50]
-        })
-        st.write("**Panel de Lecaps / Boncaps**")
-        st.table(df_lecaps)
-        
-    with c2:
-        st.write("### Curva de Rendimientos (Yield Curve)")
-        
-        # Datos para graficar la curva
-        df_curva = pd.DataFrame({
-            'Plazo': [3, 6, 8, 10], 
-            'TEM': [3.80, 3.92, 4.10, 4.50],
-    # --- BLOQUE DE TASAS PROTEGIDO ---
-        # Definimos los datos primero para evitar errores de apertura de llaves
-        raw_data = [
-            {"Ticker": "S31M6", "Vencimiento": "2026-03-31", "TEM %": 3.1},
-            {"Ticker": "S30J6", "Vencimiento": "2026-06-30", "TEM %": 3.2},
-            {"Ticker": "S29A6", "Vencimiento": "2026-08-29", "TEM %": 3.4},
-            {"Ticker": "TO26", "Vencimiento": "2026-10-17", "TEM %": 3.8},
-            {"Ticker": "M13F6", "Vencimiento": "2026-02-13", "TEM %": 2.9},
-            {"Ticker": "M16E6", "Vencimiento": "2026-01-16", "TEM %": 2.8},
-            {"Ticker": "M27F6", "Vencimiento": "2026-02-27", "TEM %": 3.0},
-            {"Ticker": "M30A6", "Vencimiento": "2026-04-30", "TEM %": 3.1},
-            {"Ticker": "M31G6", "Vencimiento": "2026-07-31", "TEM %": 3.3},
-            {"Ticker": "S17E6", "Vencimiento": "2026-01-17", "TEM %": 2.7},
-            {"Ticker": "S27F6", "Vencimiento": "2026-02-27", "TEM %": 3.0},
-            {"Ticker": "S29Y6", "Vencimiento": "2026-05-29", "TEM %": 3.2},
-            {"Ticker": "S30A6", "Vencimiento": "2026-04-30", "TEM %": 3.1},
-            {"Ticker": "S30N6", "Vencimiento": "2026-11-30", "TEM %": 3.5},
-            {"Ticker": "S30O6", "Vencimiento": "2026-10-30", "TEM %": 3.4},
-            {"Ticker": "S31G6", "Vencimiento": "2026-07-31", "TEM %": 3.2},
-            {"Ticker": "T31F6", "Vencimiento": "2026-02-28", "TEM %": 2.9}
-        ]
+        # 2. Creamos un diccionario limpio fuera del DataFrame
+        data_dict = dict(Ticker=t_nombres, Vencimiento=t_vencimientos, TEM_pct=t_tasas)
 
-        # Creamos el DataFrame a partir de la lista
-        df_curva = pd.DataFrame(raw_data)
-        
-        # Mostramos la tabla
-        st.dataframe(df_curva.sort_values('Vencimiento'), use_container_width=True, hide_index=True)
-        # ---------------------------------
+        # 3. Construimos el DataFrame
+        df_curva = pd.DataFrame(data_dict)
+
+        # 4. Formateo y Visualización
+        df_curva['Vencimiento'] = pd.to_datetime(df_curva['Vencimiento'])
+        df_curva = df_curva.sort_values('Vencimiento')
+
+        st.dataframe(
+            df_curva.style.format({'TEM_pct': '{:.1f}%'}),
+            use_container_width=True,
+            hide_index=True
+        )
 
 # --- MONITOR GLOBAL COMPLETO: TASAS, COMMODITIES E ÍNDICES ---
     st.markdown("---")
@@ -443,6 +416,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
