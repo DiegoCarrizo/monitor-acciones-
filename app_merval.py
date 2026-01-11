@@ -92,38 +92,72 @@ with tab1:
 
         # --- SECCIÓN DE BALANCES TRIMESTRALES 2024 ---
         st.markdown("---")
-        accion_sel = st.selectbox("📈 Seleccione una acción para ver Balances 2024:", df_final_pro['Ticker'].tolist())
+        st.subheader(f"📊 Análisis de Resultados 2024")
+        
+        # Selector de acción basado en los resultados de la tabla
+        accion_sel = st.selectbox("📈 Seleccione una acción para analizar sus reportes 2024:", df_final_pro['Ticker'].tolist())
         
         @st.cache_data(ttl=3600)
-        def obtener_balances_2024(ticker_str):
+        def obtener_balances_pro(ticker_str):
             try:
                 tk = yf.Ticker(ticker_str)
+                # Extraemos financieros trimestrales
                 bal = tk.quarterly_financials.T
-                # Filtramos solo trimestres cuyo año sea 2024
+                # Filtrar solo 2024
                 bal_2024 = bal[bal.index.year == 2024].sort_index()
+                
                 if bal_2024.empty: return None
                 
-                return pd.DataFrame({
-                    'Trimestre': bal_2024.index.strftime('%Q - %Y'),
+                # Armamos el DataFrame con nombres claros
+                df = pd.DataFrame({
+                    'Trimestre': bal_2024.index.strftime('Q%Q - %Y'),
                     'Ingresos': bal_2024.get('Total Revenue', 0),
-                    'Ganancia Neta': bal_2024.get('Net Income', 0),
-                    'EBITDA': bal_2024.get('Ebitda', 0)
+                    'EBITDA': bal_2024.get('Ebitda', bal_2024.get('Operating Income', 0)),
+                    'Ganancia Neta': bal_2024.get('Net Income', 0)
                 })
+                return df
             except: return None
 
-        df_bal = obtener_balances_2024(accion_sel)
+        df_bal = obtener_balances_pro(accion_sel)
         
         if df_bal is not None:
+            # Crear gráfico de barras agrupadas
             fig_bal = go.Figure()
-            fig_bal.add_trace(go.Bar(x=df_bal['Trimestre'], y=df_bal['Ingresos'], name='Ingresos', marker_color='#3498db'))
-            fig_bal.add_trace(go.Bar(x=df_bal['Trimestre'], y=df_bal['Ganancia Neta'], name='Ganancia Neta', marker_color='#2ecc71'))
-            fig_bal.update_layout(template="plotly_dark", barmode='group', title=f"Resultados 2024: {accion_sel}")
+
+            metrics = [
+                {'col': 'Ingresos', 'name': 'Ventas Totales', 'color': '#3498db'},
+                {'col': 'EBITDA', 'name': 'EBITDA (Operativo)', 'color': '#f1c40f'},
+                {'col': 'Ganancia Neta', 'name': 'Ganancia Neta', 'color': '#2ecc71'}
+            ]
+
+            for m in metrics:
+                fig_bal.add_trace(go.Bar(
+                    x=df_bal['Trimestre'],
+                    y=df_bal[m['col']],
+                    name=m['name'],
+                    marker_color=m['color'],
+                    text=df_bal[m['col']].apply(lambda x: f'{x/1e6:.1f}M' if abs(x) >= 1e6 else f'{x:.0f}'),
+                    textposition='outside'
+                ))
+
+            fig_bal.update_layout(
+                title=f"Evolución Trimestral 2024: {accion_sel}",
+                template="plotly_dark",
+                barmode='group', # Agrupa las barras una al lado de la otra
+                height=500,
+                xaxis_title="Trimestres de 2024",
+                yaxis_title="Monto en moneda original",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                margin=dict(t=80) # Espacio para que no se corten las etiquetas
+            )
+            
             st.plotly_chart(fig_bal, use_container_width=True)
-            st.dataframe(df_bal, use_container_width=True, hide_index=True)
+            
+            # Tabla de referencia rápida
+            with st.expander("Ver valores exactos"):
+                st.dataframe(df_bal, use_container_width=True, hide_index=True)
         else:
-            st.info(f"Aún no hay reportes trimestrales de 2024 cargados para {accion_sel}.")
-    
-    st.caption("PER: Price/Earnings | P/B: Price/Book | SMA200: Media de 200 ruedas.")
+            st.warning(f"⚠️ Yahoo Finance aún no refleja los balances detallados de 2024 para {accion_sel}. Los activos locales (.BA) suelen tardar más en actualizar.")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Desinflación 2025-2026")
@@ -397,6 +431,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
