@@ -90,44 +90,46 @@ with tab1:
                      .applymap(lambda v: f'background-color: {"#2ecc71" if "BULL" in v else "#e74c3c"}; color: white; font-weight: bold', subset=['Tendencia 200d']),
                      use_container_width=True, hide_index=True)
 
-        # --- SECCIÓN DE BALANCES TRIMESTRALES 2024 ---
+       # --- SECCIÓN DE BALANCES TRIMESTRALES 2024 ---
         st.markdown("---")
-        st.subheader(f"📊 Análisis de Resultados 2024")
+        st.subheader(f"📊 Reporte de Performance 2024")
         
-        # Selector de acción basado en los resultados de la tabla
-        accion_sel = st.selectbox("📈 Seleccione una acción para analizar sus reportes 2024:", df_final_pro['Ticker'].tolist())
+        accion_sel = st.selectbox("📈 Seleccione activo para visualizar resultados:", df_final_pro['Ticker'].tolist())
         
         @st.cache_data(ttl=3600)
         def obtener_balances_pro(ticker_str):
             try:
                 tk = yf.Ticker(ticker_str)
-                # Extraemos financieros trimestrales
                 bal = tk.quarterly_financials.T
-                # Filtrar solo 2024
                 bal_2024 = bal[bal.index.year == 2024].sort_index()
-                
                 if bal_2024.empty: return None
                 
-                # Armamos el DataFrame con nombres claros
-                df = pd.DataFrame({
-                    'Trimestre': bal_2024.index.strftime('Q%Q - %Y'),
+                return pd.DataFrame({
+                    'Trimestre': bal_2024.index.strftime('Q%Q %Y'),
                     'Ingresos': bal_2024.get('Total Revenue', 0),
                     'EBITDA': bal_2024.get('Ebitda', bal_2024.get('Operating Income', 0)),
                     'Ganancia Neta': bal_2024.get('Net Income', 0)
                 })
-                return df
             except: return None
 
         df_bal = obtener_balances_pro(accion_sel)
         
         if df_bal is not None:
-            # Crear gráfico de barras agrupadas
+            # Función para formatear etiquetas (M para millones, B para billones)
+            def format_val(val):
+                if abs(val) >= 1e12: return f'${val/1e12:.2f}T'
+                if abs(val) >= 1e9: return f'${val/1e9:.2f}B'
+                if abs(val) >= 1e6: return f'${val/1e6:.1f}M'
+                return f'${val:,.0f}'
+
             fig_bal = go.Figure()
 
+            # Configuración de barras con diseño minimalista
+            # Colores: Azul profundo (Ingresos), Dorado Mate (EBITDA), Esmeralda (Ganancia)
             metrics = [
-                {'col': 'Ingresos', 'name': 'Ventas Totales', 'color': '#3498db'},
-                {'col': 'EBITDA', 'name': 'EBITDA (Operativo)', 'color': '#f1c40f'},
-                {'col': 'Ganancia Neta', 'name': 'Ganancia Neta', 'color': '#2ecc71'}
+                {'col': 'Ingresos', 'name': 'Ventas Totales', 'color': '#1f77b4'},
+                {'col': 'EBITDA', 'name': 'EBITDA (Eficiencia)', 'color': '#ff7f0e'},
+                {'col': 'Ganancia Neta', 'name': 'Resultado Neto', 'color': '#2ca02c'}
             ]
 
             for m in metrics:
@@ -135,29 +137,35 @@ with tab1:
                     x=df_bal['Trimestre'],
                     y=df_bal[m['col']],
                     name=m['name'],
-                    marker_color=m['color'],
-                    text=df_bal[m['col']].apply(lambda x: f'{x/1e6:.1f}M' if abs(x) >= 1e6 else f'{x:.0f}'),
-                    textposition='outside'
+                    marker=dict(color=m['color'], line=dict(width=0)),
+                    text=df_bal[m['col']].apply(format_val),
+                    textposition='outside',
+                    cliponaxis=False # Evita que se corten las etiquetas superiores
                 ))
 
             fig_bal.update_layout(
-                title=f"Evolución Trimestral 2024: {accion_sel}",
+                title=dict(text=f"ESTADOS FINANCIEROS 2024: {accion_sel}", font=dict(size=20, color="white")),
                 template="plotly_dark",
-                barmode='group', # Agrupa las barras una al lado de la otra
-                height=500,
-                xaxis_title="Trimestres de 2024",
-                yaxis_title="Monto en moneda original",
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                margin=dict(t=80) # Espacio para que no se corten las etiquetas
+                barmode='group',
+                bargap=0.15, 
+                bargroupgap=0.1,
+                height=550,
+                plot_bgcolor="rgba(0,0,0,0)", # Fondo transparente
+                paper_bgcolor="rgba(0,0,0,0)",
+                yaxis=dict(showticklabels=False, showgrid=True, gridcolor="rgba(255,255,255,0.1)"), # Ocultamos eje Y para mayor limpieza
+                xaxis=dict(showgrid=False),
+                legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
+                margin=dict(t=120, b=50, l=10, r=10)
             )
             
             st.plotly_chart(fig_bal, use_container_width=True)
             
-            # Tabla de referencia rápida
-            with st.expander("Ver valores exactos"):
-                st.dataframe(df_bal, use_container_width=True, hide_index=True)
+            # Tabla estilizada debajo
+            st.markdown("#### Detalle Numérico")
+            st.table(df_bal.set_index('Trimestre').applymap(format_val))
+            
         else:
-            st.warning(f"⚠️ Yahoo Finance aún no refleja los balances detallados de 2024 para {accion_sel}. Los activos locales (.BA) suelen tardar más en actualizar.")
+            st.info(f"🔍 Buscando reportes... Yahoo Finance aún no ha procesado los datos de 2024 para {accion_sel}.")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Desinflación 2025-2026")
@@ -431,6 +439,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
