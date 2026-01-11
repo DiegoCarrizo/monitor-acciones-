@@ -30,93 +30,99 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026",
 
 # --- PESTAÑA 1: ACCIONES CON TODAS LAS EMPRESAS ---
 with tab1:
-    st.subheader("📊 Monitor de Valuación y Tendencia: Merval & USA")
+    st.subheader("📊 Panel de Valuación Profesional (USD CCL)")
 
-    # 1. LISTA DE TICKERS UNIFICADA
+    # 1. DICCIONARIO COMPLETO DE TICKERS
     tickers_dict = {
+        # --- PANEL LÍDER ARGENTINA ---
         'ALUA.BA': '🇦🇷 Aluar', 'BBAR.BA': '🇦🇷 BBVA Francés', 'BMA.BA': '🇦🇷 Banco Macro',
         'BYMA.BA': '🇦🇷 BYMA', 'CEPU.BA': '🇦🇷 Central Puerto', 'COME.BA': '🇦🇷 Comercial Plata',
         'EDN.BA': '🇦🇷 Edenor', 'GGAL.BA': '🇦🇷 Grupo Galicia', 'LOMA.BA': '🇦🇷 Loma Negra',
         'METR.BA': '🇦🇷 Metrogas', 'PAMP.BA': '🇦🇷 Pampa Energía', 'SUPV.BA': '🇦🇷 Supervielle',
         'TECO2.BA': '🇦🇷 Telecom', 'TGNO4.BA': '🇦🇷 TGN', 'TGSU2.BA': '🇦🇷 TGS',
         'TRAN.BA': '🇦🇷 Transener', 'TXAR.BA': '🇦🇷 Ternium', 'YPFD.BA': '🇦🇷 YPF',
-        'AAPL': '🇺🇸 Apple', 'AMZN': '🇺🇸 Amazon', 'MSFT': '🇺🇸 Microsoft', 'NVDA': '🇺🇸 NVIDIA',
-        'TSLA': '🇺🇸 Tesla', 'KO': '🇺🇸 Coca-Cola', 'MELI': '🇺🇸 Mercado Libre', 'GOLD': '🇺🇸 Barrick Gold'
+        # --- ACCIONES USA / CEDEARS ---
+        'AAPL': '🇺🇸 Apple', 'AMZN': '🇺🇸 Amazon', 'BRK-B': '🇺🇸 Berkshire', 'GOOGL': '🇺🇸 Alphabet',
+        'META': '🇺🇸 Meta', 'MSFT': '🇺🇸 Microsoft', 'NFLX': '🇺🇸 Netflix', 'NVDA': '🇺🇸 NVIDIA',
+        'TSLA': '🇺🇸 Tesla', 'KO': '🇺🇸 Coca-Cola', 'PEP': '🇺🇸 PepsiCo', 'MELI': '🇺🇸 Mercado Libre',
+        'PYPL': '🇺🇸 PayPal', 'V': '🇺🇸 Visa', 'JPM': '🇺🇸 JP Morgan', 'GOLD': '🇺🇸 Barrick Gold', 'XOM': '🇺🇸 Exxon'
     }
 
     @st.cache_data(ttl=600)
-    def obtener_analisis_profundo(lista_tickers):
-        data_resumen = []
-        # Descargamos historial suficiente para la media de 200
-        df_hist = yf.download(lista_tickers, period="2y", interval="1d")['Close']
+    def obtener_datos_completos_ccl(lista_tickers):
+        # 1. Calculamos el CCL promedio usando GGAL (Ratio 10:1)
+        # Bajamos datos recientes
+        ccl_df = yf.download(['GGAL.BA', 'GGAL'], period="5d")['Close']
+        precio_ccl = (ccl_df['GGAL'].iloc[-1] * 10) / ccl_df['GGAL.BA'].iloc[-1]
         
+        # 2. Bajamos historial para SMA200 y Precios
+        df_hist = yf.download(lista_tickers, period="2y")['Close']
+        
+        resumen = []
         for t in lista_tickers:
             try:
-                ticker_obj = yf.Ticker(t)
-                info = ticker_obj.info
+                tk = yf.Ticker(t)
+                info = tk.info
                 serie = df_hist[t].dropna()
+                p_actual = serie.iloc[-1]
+                p_ayer = serie.iloc[-2]
                 
-                if not serie.empty:
-                    precio_actual = serie.iloc[-1]
-                    precio_ayer = serie.iloc[-2]
-                    var_diaria = ((precio_actual / precio_ayer) - 1) * 100
-                    
-                    # --- ANÁLISIS TÉCNICO ---
-                    sma_200 = serie.rolling(200).mean().iloc[-1]
-                    dist_sma200 = ((precio_actual / sma_200) - 1) * 100
-                    tendencia_largo = "📈 BULL" if precio_actual > sma_200 else "📉 BEAR"
-                    
-                    # --- ANÁLISIS FUNDAMENTAL ---
-                    per = info.get('trailingPE', 0)
-                    pb = info.get('priceToBook', 0)
-                    mkt_cap = info.get('marketCap', 0) / 1e9 
-                    
-                    data_resumen.append({
-                        'Activo': tickers_dict[t],
-                        'Ticker': t.replace(".BA", ""),
-                        'Precio': round(precio_actual, 2),
-                        'Var %': round(var_diaria, 2),
-                        'PER': round(per, 2) if per and per > 0 else "N/A",
-                        'P/B': round(pb, 2) if pb and pb > 0 else "N/A",
-                        'Tendencia 200d': tendencia_largo,
-                        'Dist. SMA200': f"{dist_sma200:.1f}%",
-                        'Mkt Cap (Bn)': f"{mkt_cap:.2f}"
-                    })
-            except:
-                continue
-        return pd.DataFrame(data_resumen)
+                # Conversión de precio a USD si es .BA
+                p_usd = p_actual / precio_ccl if ".BA" in t else p_actual
+                var_diaria = ((p_actual / p_ayer) - 1) * 100
+                
+                # Análisis Técnico SMA200
+                sma200 = serie.rolling(200).mean().iloc[-1]
+                tendencia = "📈 BULL" if p_actual > sma200 else "📉 BEAR"
+                
+                # Múltiplos
+                per = info.get('trailingPE', 0)
+                pb = info.get('priceToBook', 0)
+                mkt_cap = info.get('marketCap', 0) / 1e9 # Bn USD
+                
+                resumen.append({
+                    'Activo': tickers_dict[t],
+                    'Ticker': t.replace(".BA", ""),
+                    'Precio (USD)': round(p_usd, 2),
+                    'Var %': round(var_diaria, 2),
+                    'P/B (Ratio)': round(pb, 2) if pb and pb > 0 else "N/A",
+                    'PER': round(per, 1) if per and per > 0 else "N/A",
+                    'Tendencia 200d': tendencia,
+                    'Cap. Burs (Bn)': round(mkt_cap, 2)
+                })
+            except: continue
+        return pd.DataFrame(resumen), precio_ccl
 
-    with st.spinner('Analizando fundamentales y medias móviles...'):
-        df_final_pro = obtener_analisis_profundo(list(tickers_dict.keys()))
+    with st.spinner('Actualizando métricas y valuaciones CCL...'):
+        df_final, dolar_ccl = obtener_datos_completos_ccl(list(tickers_dict.keys()))
 
-    if not df_final_pro.empty:
-        # Buscador
-        busqueda = st.text_input("🔍 Buscar activo...")
-        if busqueda:
-            df_final_pro = df_final_pro[df_final_pro['Activo'].str.contains(busqueda, case=False) | df_final_pro['Ticker'].str.contains(busqueda, case=False)]
+    # Cabecera de información
+    c_inf1, c_inf2 = st.columns(2)
+    c_inf1.metric("Dólar CCL (Referencia GGAL)", f"${dolar_ccl:.2f}")
+    c_inf2.write("✅ **Análisis:** Precios locales convertidos a USD para comparación directa con Wall Street.")
 
-        # --- APLICACIÓN DE ESTILOS CORREGIDA ---
-        def style_positive_negative(val):
-            if isinstance(val, (int, float)):
-                color = '#27ae60' if val > 0 else '#e74c3c'
-                return f'color: {color}; font-weight: bold'
-            return ''
+    # Buscador
+    busc = st.text_input("🔍 Buscar activo por nombre o ticker...")
+    if busc:
+        df_final = df_final[df_final['Activo'].str.contains(busc, case=False) | df_final['Ticker'].str.contains(busc, case=False)]
 
-        def style_trend(val):
-            color = '#2ecc71' if "BULL" in val else '#e74c3c'
-            return f'background-color: {color}; color: white; font-weight: bold'
+    # Estilos
+    def style_trend(val):
+        color = '#2ecc71' if "BULL" in str(val) else '#e74c3c'
+        return f'background-color: {color}; color: white; font-weight: bold'
 
-        # Aquí es donde estaba el error de sintaxis, ahora está cerrado correctamente
-        st.dataframe(
-            df_final_pro.style.applymap(style_positive_negative, subset=['Var %'])
-            .applymap(style_trend, subset=['Tendencia 200d']),
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.warning("No se pudieron cargar los datos. Reintente en unos instantes.")
+    def style_var(val):
+        if isinstance(val, (int, float)):
+            color = '#27ae60' if val > 0 else '#e74c3c'
+            return f'color: {color}; font-weight: bold'
+        return ''
 
-    st.caption("PER: Price/Earnings | P/B: Price/Book | SMA200: Media de 200 ruedas.")
+    st.dataframe(
+        df_final.style.applymap(style_var, subset=['Var %'])
+                      .applymap(style_trend, subset=['Tendencia 200d']),
+        use_container_width=True,
+        hide_index=True
+    )
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Desinflación 2025-2026")
@@ -390,6 +396,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
