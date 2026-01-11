@@ -186,7 +186,7 @@ import plotly.graph_objects as go
 # --- 1. PREPARACIÓN DE DATOS PARA LA CURVA ---
 # Usamos los datos de tu tabla de LECAPS y Bonos
 datos_curva = {
-    'Ticker': ['S31M6', 'S30J6', 'S29A6', 'S30S6', 'T2X6', 'AL30', 'GD30'],
+    'Ticker': ['S31M6', 'S30J6', 'S29A6', 'S30S6', 'T30E6'],
     'Plazo_Meses': [3, 6, 8, 9, 10, 48, 52], # Estimación de meses al vencimiento
     'TEM': [3.80, 3.92, 4.10, 4.25, 4.40, 5.10, 4.90] # Tasa Efectiva Mensual
 }
@@ -438,6 +438,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
