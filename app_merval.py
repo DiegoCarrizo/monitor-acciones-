@@ -207,65 +207,34 @@ with tab3:
         df_curva = pd.DataFrame({
             'Plazo': [3, 6, 8, 10], 
             'TEM': [3.80, 3.92, 4.10, 4.50],
-            
-     ## --- SECCIÓN CURVA DE TASAS (BONOS Y LECAPS) ---
-with tab2:
-    st.subheader("📍 Curva de Rendimientos - Gorostiaga Bursátil")
+    # --- BLOQUE DE TASAS PROTEGIDO ---
+        # Definimos los datos primero para evitar errores de apertura de llaves
+        raw_data = [
+            {"Ticker": "S31M6", "Vencimiento": "2026-03-31", "TEM %": 3.1},
+            {"Ticker": "S30J6", "Vencimiento": "2026-06-30", "TEM %": 3.2},
+            {"Ticker": "S29A6", "Vencimiento": "2026-08-29", "TEM %": 3.4},
+            {"Ticker": "TO26", "Vencimiento": "2026-10-17", "TEM %": 3.8},
+            {"Ticker": "M13F6", "Vencimiento": "2026-02-13", "TEM %": 2.9},
+            {"Ticker": "M16E6", "Vencimiento": "2026-01-16", "TEM %": 2.8},
+            {"Ticker": "M27F6", "Vencimiento": "2026-02-27", "TEM %": 3.0},
+            {"Ticker": "M30A6", "Vencimiento": "2026-04-30", "TEM %": 3.1},
+            {"Ticker": "M31G6", "Vencimiento": "2026-07-31", "TEM %": 3.3},
+            {"Ticker": "S17E6", "Vencimiento": "2026-01-17", "TEM %": 2.7},
+            {"Ticker": "S27F6", "Vencimiento": "2026-02-27", "TEM %": 3.0},
+            {"Ticker": "S29Y6", "Vencimiento": "2026-05-29", "TEM %": 3.2},
+            {"Ticker": "S30A6", "Vencimiento": "2026-04-30", "TEM %": 3.1},
+            {"Ticker": "S30N6", "Vencimiento": "2026-11-30", "TEM %": 3.5},
+            {"Ticker": "S30O6", "Vencimiento": "2026-10-30", "TEM %": 3.4},
+            {"Ticker": "S31G6", "Vencimiento": "2026-07-31", "TEM %": 3.2},
+            {"Ticker": "T31F6", "Vencimiento": "2026-02-28", "TEM %": 2.9}
+        ]
 
-    # Listas limpias y verificadas (17 elementos cada una)
-    lista_tickers = [
-        "S31M6", "S30J6", "S29A6", "TO26", "M13F6", "M16E6", "M27F6", "M30A6", 
-        "M31G6", "S17E6", "S27F6", "S29Y6", "S30A6", "S30N6", "S30O6", "S31G6", "T31F6"
-    ]
-    
-    lista_vencimientos = [
-        "2026-03-31", "2026-06-30", "2026-08-29", "2026-10-17", "2026-02-13", "2026-01-16", 
-        "2026-02-27", "2026-04-30", "2026-07-31", "2026-01-17", "2026-02-27", "2026-05-29", 
-        "2026-04-30", "2026-11-30", "2026-10-30", "2026-07-31", "2026-02-28"
-    ]
-    
-    lista_tem = [
-        3.1, 3.2, 3.4, 3.8, 2.9, 2.8, 3.0, 3.1, 3.3, 2.7, 3.0, 3.2, 3.1, 3.5, 3.4, 3.2, 2.9
-    ]
-
-    # Construcción segura del DataFrame
-    df_curva = pd.DataFrame({
-        'Ticker': lista_tickers,
-        'Vencimiento': lista_vencimientos,
-        'TEM %': lista_tem
-    })
-
-    # Convertimos la columna de vencimiento a formato fecha para poder ordenarla
-    df_curva['Vencimiento'] = pd.to_datetime(df_curva['Vencimiento'])
-
-    # Mostramos la tabla ordenada por fecha para que sea profesional
-    st.dataframe(
-        df_curva.sort_values('Vencimiento').style.format({'TEM %': '{:.1f}%'}),
-        use_container_width=True,
-        hide_index=True
-    )
-
-        # Gráfico de la curva
-        fig_curva = go.Figure()
-        fig_curva.add_trace(go.Scatter(
-            x=df_curva['Plazo'], 
-            y=df_curva['TEM'],
-            mode='lines+markers+text',
-            text=df_curva['Ticker'],
-            textposition="top center",
-            line=dict(color='#f1c40f', width=2),
-            marker=dict(size=8, color='#f39c12')
-        ))
-
-        fig_curva.update_layout(
-            template="plotly_dark",
-            height=300,
-            margin=dict(l=10, r=10, t=10, b=10),
-            xaxis_title="Meses",
-            yaxis_title="TEM %",
-            showlegend=False
-        )
-        st.plotly_chart(fig_curva, use_container_width=True)
+        # Creamos el DataFrame a partir de la lista
+        df_curva = pd.DataFrame(raw_data)
+        
+        # Mostramos la tabla
+        st.dataframe(df_curva.sort_values('Vencimiento'), use_container_width=True, hide_index=True)
+        # ---------------------------------
 
 # --- MONITOR GLOBAL COMPLETO: TASAS, COMMODITIES E ÍNDICES ---
     st.markdown("---")
@@ -474,6 +443,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
