@@ -47,75 +47,82 @@ with tab1:
     @st.cache_data(ttl=600)
     def obtener_analisis_profundo(lista_tickers):
         data_resumen = []
-        # Descargamos historial suficiente para la media de 200
         df_hist = yf.download(lista_tickers, period="2y", interval="1d")['Close']
-        
         for t in lista_tickers:
             try:
                 ticker_obj = yf.Ticker(t)
                 info = ticker_obj.info
                 serie = df_hist[t].dropna()
-                
                 if not serie.empty:
                     precio_actual = serie.iloc[-1]
                     precio_ayer = serie.iloc[-2]
                     var_diaria = ((precio_actual / precio_ayer) - 1) * 100
-                    
-                    # --- ANÁLISIS TÉCNICO ---
                     sma_200 = serie.rolling(200).mean().iloc[-1]
                     dist_sma200 = ((precio_actual / sma_200) - 1) * 100
                     tendencia_largo = "📈 BULL" if precio_actual > sma_200 else "📉 BEAR"
-                    
-                    # --- ANÁLISIS FUNDAMENTAL ---
                     per = info.get('trailingPE', 0)
                     pb = info.get('priceToBook', 0)
                     mkt_cap = info.get('marketCap', 0) / 1e9 
-                    
                     data_resumen.append({
-                        'Activo': tickers_dict[t],
-                        'Ticker': t.replace(".BA", ""),
-                        'Precio': round(precio_actual, 2),
-                        'Var %': round(var_diaria, 2),
-                        'PER': round(per, 2) if per and per > 0 else "N/A",
-                        'P/B': round(pb, 2) if pb and pb > 0 else "N/A",
-                        'Tendencia 200d': tendencia_largo,
-                        'Dist. SMA200': f"{dist_sma200:.1f}%",
-                        'Mkt Cap (Bn)': f"{mkt_cap:.2f}"
+                        'Activo': tickers_dict[t], 'Ticker': t, 'Precio': round(precio_actual, 2),
+                        'Var %': round(var_diaria, 2), 'PER': round(per, 2) if per and per > 0 else "N/A",
+                        'P/B': round(pb, 2) if pb and pb > 0 else "N/A", 'Tendencia 200d': tendencia_largo,
+                        'Dist. SMA200': f"{dist_sma200:.1f}%", 'Mkt Cap (Bn)': f"{mkt_cap:.2f}"
                     })
-            except:
-                continue
+            except: continue
         return pd.DataFrame(data_resumen)
 
-    with st.spinner('Analizando fundamentales y medias móviles...'):
-        df_final_pro = obtener_analisis_profundo(list(tickers_dict.keys()))
+    df_final_pro = obtener_analisis_profundo(list(tickers_dict.keys()))
 
     if not df_final_pro.empty:
-        # Buscador
+        # Buscador y Tabla Principal
         busqueda = st.text_input("🔍 Buscar activo...")
+        df_filtrada = df_final_pro.copy()
         if busqueda:
-            df_final_pro = df_final_pro[df_final_pro['Activo'].str.contains(busqueda, case=False) | df_final_pro['Ticker'].str.contains(busqueda, case=False)]
+            df_filtrada = df_final_pro[df_final_pro['Activo'].str.contains(busqueda, case=False) | df_final_pro['Ticker'].str.contains(busqueda, case=False)]
 
-        # --- APLICACIÓN DE ESTILOS CORREGIDA ---
         def style_positive_negative(val):
             if isinstance(val, (int, float)):
-                color = '#27ae60' if val > 0 else '#e74c3c'
-                return f'color: {color}; font-weight: bold'
+                return f'color: {"#27ae60" if val > 0 else "#e74c3c"}; font-weight: bold'
             return ''
 
-        def style_trend(val):
-            color = '#2ecc71' if "BULL" in val else '#e74c3c'
-            return f'background-color: {color}; color: white; font-weight: bold'
+        st.dataframe(df_filtrada.style.applymap(style_positive_negative, subset=['Var %'])
+                     .applymap(lambda v: f'background-color: {"#2ecc71" if "BULL" in v else "#e74c3c"}; color: white; font-weight: bold', subset=['Tendencia 200d']),
+                     use_container_width=True, hide_index=True)
 
-        # Aquí es donde estaba el error de sintaxis, ahora está cerrado correctamente
-        st.dataframe(
-            df_final_pro.style.applymap(style_positive_negative, subset=['Var %'])
-            .applymap(style_trend, subset=['Tendencia 200d']),
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.warning("No se pudieron cargar los datos. Reintente en unos instantes.")
+        # --- SECCIÓN DE BALANCES TRIMESTRALES 2024 ---
+        st.markdown("---")
+        accion_sel = st.selectbox("📈 Seleccione una acción para ver Balances 2024:", df_final_pro['Ticker'].tolist())
+        
+        @st.cache_data(ttl=3600)
+        def obtener_balances_2024(ticker_str):
+            try:
+                tk = yf.Ticker(ticker_str)
+                bal = tk.quarterly_financials.T
+                # Filtramos solo trimestres cuyo año sea 2024
+                bal_2024 = bal[bal.index.year == 2024].sort_index()
+                if bal_2024.empty: return None
+                
+                return pd.DataFrame({
+                    'Trimestre': bal_2024.index.strftime('%Q - %Y'),
+                    'Ingresos': bal_2024.get('Total Revenue', 0),
+                    'Ganancia Neta': bal_2024.get('Net Income', 0),
+                    'EBITDA': bal_2024.get('Ebitda', 0)
+                })
+            except: return None
 
+        df_bal = obtener_balances_2024(accion_sel)
+        
+        if df_bal is not None:
+            fig_bal = go.Figure()
+            fig_bal.add_trace(go.Bar(x=df_bal['Trimestre'], y=df_bal['Ingresos'], name='Ingresos', marker_color='#3498db'))
+            fig_bal.add_trace(go.Bar(x=df_bal['Trimestre'], y=df_bal['Ganancia Neta'], name='Ganancia Neta', marker_color='#2ecc71'))
+            fig_bal.update_layout(template="plotly_dark", barmode='group', title=f"Resultados 2024: {accion_sel}")
+            st.plotly_chart(fig_bal, use_container_width=True)
+            st.dataframe(df_bal, use_container_width=True, hide_index=True)
+        else:
+            st.info(f"Aún no hay reportes trimestrales de 2024 cargados para {accion_sel}.")
+    
     st.caption("PER: Price/Earnings | P/B: Price/Book | SMA200: Media de 200 ruedas.")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -390,6 +397,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
