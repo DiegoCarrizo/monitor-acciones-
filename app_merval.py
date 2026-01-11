@@ -30,81 +30,77 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026",
 
 # --- PESTAÑA 1: ACCIONES CON TODAS LAS EMPRESAS ---
 with tab1:
-    st.subheader("📊 Monitor de Activos: Merval & Wall Street")
+    st.subheader("📊 Monitor Integral: Merval & Wall Street")
 
-    # 1. LISTA UNIFICADA DE TICKERS
+    # 1. LISTA DE TICKERS UNIFICADA
     tickers_dict = {
-        # --- PANEL LÍDER ARGENTINA ---
         'ALUA.BA': '🇦🇷 Aluar', 'BBAR.BA': '🇦🇷 BBVA Francés', 'BMA.BA': '🇦🇷 Banco Macro',
         'BYMA.BA': '🇦🇷 BYMA', 'CEPU.BA': '🇦🇷 Central Puerto', 'COME.BA': '🇦🇷 Comercial Plata',
         'EDN.BA': '🇦🇷 Edenor', 'GGAL.BA': '🇦🇷 Grupo Galicia', 'LOMA.BA': '🇦🇷 Loma Negra',
         'METR.BA': '🇦🇷 Metrogas', 'PAMP.BA': '🇦🇷 Pampa Energía', 'SUPV.BA': '🇦🇷 Supervielle',
         'TECO2.BA': '🇦🇷 Telecom', 'TGNO4.BA': '🇦🇷 TGN', 'TGSU2.BA': '🇦🇷 TGS',
         'TRAN.BA': '🇦🇷 Transener', 'TXAR.BA': '🇦🇷 Ternium', 'YPFD.BA': '🇦🇷 YPF',
-        # --- ACCIONES USA / CEDEARS ---
-        'AAPL': '🇺🇸 Apple', 'AMZN': '🇺🇸 Amazon', 'BRK-B': '🇺🇸 Berkshire', 'GOOGL': '🇺🇸 Alphabet',
-        'META': '🇺🇸 Meta', 'MSFT': '🇺🇸 Microsoft', 'NFLX': '🇺🇸 Netflix', 'NVDA': '🇺🇸 NVIDIA',
-        'TSLA': '🇺🇸 Tesla', 'KO': '🇺🇸 Coca-Cola', 'PEP': '🇺🇸 PepsiCo', 'MELI': '🇺🇸 Mercado Libre',
-        'PYPL': '🇺🇸 PayPal', 'V': '🇺🇸 Visa', 'JPM': '🇺🇸 JP Morgan', 'GOLD': '🇺🇸 Barrick Gold', 'XOM': '🇺🇸 Exxon'
+        'AAPL': '🇺🇸 Apple', 'AMZN': '🇺🇸 Amazon', 'MSFT': '🇺🇸 Microsoft', 'NVDA': '🇺🇸 NVIDIA',
+        'TSLA': '🇺🇸 Tesla', 'KO': '🇺🇸 Coca-Cola', 'MELI': '🇺🇸 Mercado Libre', 'GOLD': '🇺🇸 Barrick Gold'
     }
 
-    @st.cache_data(ttl=300) # Actualización cada 5 minutos
-    def obtener_precios_tabla1(lista_tickers):
-        # Descargamos los últimos 2 días para calcular la variación diaria
-        df = yf.download(lista_tickers, period="2d", interval="1d")['Close']
-        return df
+    @st.cache_data(ttl=300)
+    def obtener_datos_pro(lista_tickers):
+        # Descargamos datos y metadatos fundamentales
+        data_resumen = []
+        for t in lista_tickers:
+            try:
+                ticker_obj = yf.Ticker(t)
+                hist = ticker_obj.history(period="5d")
+                info = ticker_obj.info
+                
+                # Precios y Variación
+                precio_actual = hist['Close'].iloc[-1]
+                precio_ayer = hist['Close'].iloc[-2]
+                var_diaria = ((precio_actual / precio_ayer) - 1) * 100
+                
+                # Volumen y Market Cap
+                volumen = hist['Volume'].iloc[-1]
+                mkt_cap = info.get('marketCap', 0)
+                
+                # Análisis Técnico (Dist. Máx 52s)
+                hist_1y = ticker_obj.history(period="1y")['Close']
+                max_52w = hist_1y.max()
+                dist_max = ((precio_actual / max_52w) - 1) * 100
+                
+                data_resumen.append({
+                    'Activo': tickers_dict[t],
+                    'Ticker': t.replace(".BA", ""),
+                    'Último': round(precio_actual, 2),
+                    'Var %': round(var_diaria, 2),
+                    'Volumen': f"{volumen:,.0f}",
+                    'Market Cap': f"{mkt_cap / 1e9:.2f}B" if mkt_cap > 0 else "N/A",
+                    'Dist. Máx 52s %': round(dist_max, 2),
+                    'Tendencia': "📈 Alcista" if precio_actual > hist['Close'].rolling(20).mean().iloc[-1] else "📉 Bajista"
+                })
+            except:
+                continue
+        return pd.DataFrame(data_resumen)
 
-    try:
-        with st.spinner('Actualizando cotizaciones...'):
-            df_precios = obtener_precios_tabla1(list(tickers_dict.keys()))
-            
-            resumen_activos = []
-            for t, nombre in tickers_dict.items():
-                if t in df_precios.columns:
-                    # Precio actual y anterior
-                    precio_hoy = df_precios[t].iloc[-1]
-                    precio_ayer = df_precios[t].iloc[-2]
-                    variacion = ((precio_hoy / precio_ayer) - 1) * 100
-                    
-                    resumen_activos.append({
-                        'Activo': nombre,
-                        'Ticker': t.replace(".BA", ""),
-                        'Último': round(precio_hoy, 2),
-                        'Var %': round(variacion, 2)
-                    })
+    with st.spinner('Sincronizando con mercados globales...'):
+        df_pro = obtener_datos_pro(list(tickers_dict.keys()))
 
-            df_final = pd.DataFrame(resumen_activos)
+    # --- BUSCADOR Y TABLA ---
+    busqueda = st.text_input("🔍 Buscar por ticker o nombre...")
+    if busqueda:
+        df_pro = df_pro[df_pro['Activo'].str.contains(busqueda, case=False) | df_pro['Ticker'].str.contains(busqueda, case=False)]
 
-            # 2. MÉTRICAS DESTACADAS (Top Ganadora y Top Perdedora)
-            top_up = df_final.loc[df_final['Var %'].idxmax()]
-            top_down = df_final.loc[df_final['Var %'].idxmin()]
+    def style_pro(v):
+        if isinstance(v, float):
+            color = '#27ae60' if v > 0 else '#e74c3c'
+            return f'color: {color}; font-weight: bold'
+        return ''
 
-            m1, m2 = st.columns(2)
-            m1.metric("🚀 Top Rendimiento", f"{top_up['Activo']}", f"{top_up['Var %']}%")
-            m2.metric("📉 Mayor Retroceso", f"{top_down['Activo']}", f"{top_down['Var %']}%", delta_color="inverse")
-
-            # 3. TABLA INTERACTIVA
-            st.markdown("---")
-            
-            # Buscador rápido
-            busqueda = st.text_input("🔍 Buscar activo (ej: YPF, Apple, GGAL)...")
-            if busqueda:
-                df_final = df_final[df_final['Activo'].str.contains(busqueda, case=False) | df_final['Ticker'].str.contains(busqueda, case=False)]
-
-            # Aplicar formato de colores
-            def color_variacion(val):
-                color = '#27ae60' if val > 0 else '#e74c3c'
-                return f'color: {color}; font-weight: bold'
-
-            st.dataframe(
-                df_final.style.applymap(color_variacion, subset=['Var %']),
-                use_container_width=True,
-                hide_index=True
-            )
-
-    except Exception as e:
-        st.error(f"Error al cargar la tabla: {e}")
-
+    st.dataframe(
+        df_pro.style.applymap(style_pro, subset=['Var %', 'Dist. Máx 52s %']),
+        use_container_width=True,
+        hide_index=True
+    )
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Desinflación 2025-2026")
@@ -378,6 +374,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
