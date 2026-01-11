@@ -6,6 +6,7 @@ import plotly.express as px
 import streamlit.components.v1 as components
 import requests
 from bs4 import BeautifulSoup
+import yfinance as yf  # <--- ESTA ES LA LÍNEA QUE FALTA
 
 # --- 1. DEFINICIÓN DE FUNCIONES (PONER AQUÍ ARRIBA) ---
 def obtener_riesgo_pais_oficial():
@@ -377,6 +378,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
