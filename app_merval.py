@@ -30,7 +30,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026",
 
 # --- PESTAÑA 1: ACCIONES CON TODAS LAS EMPRESAS ---
 with tab1:
-    st.subheader("📊 Monitor Integral: Merval & Wall Street")
+    st.subheader("📊 Monitor de Valuación y Tendencia: Merval & USA")
 
     # 1. LISTA DE TICKERS UNIFICADA
     tickers_dict = {
@@ -44,62 +44,75 @@ with tab1:
         'TSLA': '🇺🇸 Tesla', 'KO': '🇺🇸 Coca-Cola', 'MELI': '🇺🇸 Mercado Libre', 'GOLD': '🇺🇸 Barrick Gold'
     }
 
-    @st.cache_data(ttl=300)
-    def obtener_datos_pro(lista_tickers):
-        # Descargamos datos y metadatos fundamentales
+    @st.cache_data(ttl=600)
+    def obtener_analisis_profundo(lista_tickers):
         data_resumen = []
+        # Descargamos suficiente historial para la media de 200 (mínimo 260 días hábiles)
+        df_hist = yf.download(lista_tickers, period="2y", interval="1d")['Close']
+        
         for t in lista_tickers:
             try:
                 ticker_obj = yf.Ticker(t)
-                hist = ticker_obj.history(period="5d")
                 info = ticker_obj.info
+                serie = df_hist[t].dropna()
                 
-                # Precios y Variación
-                precio_actual = hist['Close'].iloc[-1]
-                precio_ayer = hist['Close'].iloc[-2]
-                var_diaria = ((precio_actual / precio_ayer) - 1) * 100
-                
-                # Volumen y Market Cap
-                volumen = hist['Volume'].iloc[-1]
-                mkt_cap = info.get('marketCap', 0)
-                
-                # Análisis Técnico (Dist. Máx 52s)
-                hist_1y = ticker_obj.history(period="1y")['Close']
-                max_52w = hist_1y.max()
-                dist_max = ((precio_actual / max_52w) - 1) * 100
-                
-                data_resumen.append({
-                    'Activo': tickers_dict[t],
-                    'Ticker': t.replace(".BA", ""),
-                    'Último': round(precio_actual, 2),
-                    'Var %': round(var_diaria, 2),
-                    'Volumen': f"{volumen:,.0f}",
-                    'Market Cap': f"{mkt_cap / 1e9:.2f}B" if mkt_cap > 0 else "N/A",
-                    'Dist. Máx 52s %': round(dist_max, 2),
-                    'Tendencia': "📈 Alcista" if precio_actual > hist['Close'].rolling(20).mean().iloc[-1] else "📉 Bajista"
-                })
+                if not serie.empty:
+                    precio_actual = serie.iloc[-1]
+                    precio_ayer = serie.iloc[-2]
+                    var_diaria = ((precio_actual / precio_ayer) - 1) * 100
+                    
+                    # --- ANÁLISIS TÉCNICO ---
+                    sma_200 = serie.rolling(200).mean().iloc[-1]
+                    dist_sma200 = ((precio_actual / sma_200) - 1) * 100
+                    tendencia_largo = "📈 BULL" if precio_actual > sma_200 else "📉 BEAR"
+                    
+                    # --- ANÁLISIS FUNDAMENTAL (Múltiplos) ---
+                    per = info.get('trailingPE', 0)
+                    pb = info.get('priceToBook', 0)
+                    mkt_cap = info.get('marketCap', 0) / 1e9 # En Billones
+                    
+                    data_resumen.append({
+                        'Activo': tickers_dict[t],
+                        'Ticker': t.replace(".BA", ""),
+                        'Precio': round(precio_actual, 2),
+                        'Var %': round(var_diaria, 2),
+                        'PER (Múltiplo)': round(per, 2) if per > 0 else "N/A",
+                        'P/B (Valuación)': round(pb, 2) if pb > 0 else "N/A",
+                        'Tendencia 200d': tendencia_largo,
+                        'Dist. SMA200': f"{dist_sma200:.1f}%",
+                        'Mkt Cap (Bn)': f"{mkt_cap:.2f}"
+                    })
             except:
                 continue
         return pd.DataFrame(data_resumen)
 
-    with st.spinner('Sincronizando con mercados globales...'):
-        df_pro = obtener_datos_pro(list(tickers_dict.keys()))
+    with st.spinner('Realizando valuación por múltiplos y medias móviles...'):
+        df_final_pro = obtener_analisis_profundo(list(tickers_dict.keys()))
 
-    # --- BUSCADOR Y TABLA ---
-    busqueda = st.text_input("🔍 Buscar por ticker o nombre...")
+    # --- BUSCADOR ---
+    busqueda = st.text_input("🔍 Filtrar por activo...")
     if busqueda:
-        df_pro = df_pro[df_pro['Activo'].str.contains(busqueda, case=False) | df_pro['Ticker'].str.contains(busqueda, case=False)]
+        df_final_pro = df_final_pro[df_final_pro['Activo'].str.contains(busqueda, case=False) | df_final_pro['Ticker'].str.contains(busqueda, case=False)]
 
-    def style_pro(v):
-        if isinstance(v, float):
-            color = '#27ae60' if v > 0 else '#e74c3c'
+    # --- ESTILADO ---
+    def color_variacion(val):
+        if isinstance(val, float):
+            color = '#27ae60' if val > 0 else '#e74c3c'
             return f'color: {color}; font-weight: bold'
         return ''
 
+    def color_tendencia(val):
+        color = '#2ecc71' if "BULL" in val else '#e74c3c'
+        return f'background-color: {color}; color: white; font-weight: bold; border-radius: 5px;'
+
     st.dataframe(
-        df_pro.style.applymap(style_pro, subset=['Var %', 'Dist. Máx 52s %']),
+        df_final_pro.style.applymap(color_variacion, subset=['Var %'])
+                          .applymap(color_tendencia, subset=['Tendencia 200d']),
         use_container_width=True,
         hide_index=True
+    )
+
+    st.caption("PER: Relación Precio/Ganancia. P/B: Relación Precio/Valor Libros. SMA200: Media Móvil Simple de 200 días.")
     )
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -374,6 +387,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
