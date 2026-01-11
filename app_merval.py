@@ -182,60 +182,55 @@ with tab2:
     st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
-    st.subheader("📍 Curva de Rendimientos - Gorostiaga Bursátil")
+        st.subheader("📍 Curva de Rendimientos - Gorostiaga Bursátil")
+        
+        # 1. Definimos las listas por separado (Esto evita errores de llaves '{')
+        nombres = ["S31M6", "S30J6", "S29A6", "TO26", "M13F6", "M16E6", "M27F6", "M30A6", "M31G6", "S17E6", "S27F6", "S29Y6", "S30A6", "S30N6", "S30O6", "S31G6", "T31F6"]
+        
+        fechas = ["2026-03-31", "2026-06-30", "2026-08-29", "2026-10-17", "2026-02-13", "2026-01-16", "2026-02-27", "2026-04-30", "2026-07-31", "2026-01-17", "2026-02-27", "2026-05-29", "2026-04-30", "2026-11-30", "2026-10-30", "2026-07-31", "2026-02-28"]
+        
+        tasas = [3.1, 3.2, 3.4, 3.8, 2.9, 2.8, 3.0, 3.1, 3.3, 2.7, 3.0, 3.2, 3.1, 3.5, 3.4, 3.2, 2.9]
 
-    # 1. REFERENCIA: TASA PLAZO FIJO (TEM)
-    tna_pf = 38.0  # Tasa Nominal Anual Plazo Fijo
-    tem_pf = round(tna_pf / 12, 2)
-    
-    c1, c2 = st.columns(2)
-    c1.metric("TNA Plazo Fijo (Ref)", f"{tna_pf}%")
-    c2.metric("TEM Plazo Fijo (Ref)", f"{tem_pf}%")
-    
-    st.markdown("---")
+        # 2. Creamos el DataFrame
+        df_curva = pd.DataFrame({
+            'Ticker': nombres,
+            'Vencimiento': pd.to_datetime(fechas),
+            'TEM %': tasas
+        })
+        
+        # 3. Ordenamos por fecha
+        df_curva = df_curva.sort_values('Vencimiento')
 
-    # 2. DATOS DE LA CURVA (Listas simples para evitar errores de llaves)
-    nombres = ["S17E6", "M16E6", "M13F6", "M27F6", "T31F6", "S31M6", "M30A6", "S30A6", "S29Y6", "S30J6", "M31G6", "S31G6", "S29A6", "S30O6", "S30N6", "TO26"]
-    fechas = ["2026-01-17", "2026-01-16", "2026-02-13", "2026-02-27", "2026-02-28", "2026-03-31", "2026-04-30", "2026-04-30", "2026-05-29", "2026-06-30", "2026-07-31", "2026-07-31", "2026-08-29", "2026-10-30", "2026-11-30", "2026-10-17"]
-    tasas_tem = [2.7, 2.8, 2.9, 3.0, 2.9, 3.1, 3.1, 3.1, 3.2, 3.2, 3.3, 3.2, 3.4, 3.4, 3.5, 3.8]
+        # 4. Mostramos la Tabla
+        st.write("### Detalle de Tasas")
+        st.dataframe(
+            df_curva.style.format({'TEM %': '{:.1f}%'}),
+            use_container_width=True,
+            hide_index=True
+        )
 
-    # Crear el DataFrame de forma directa
-    df_tasas = pd.DataFrame()
-    df_tasas['Ticker'] = nombres
-    df_tasas['Vencimiento'] = pd.to_datetime(fechas)
-    df_tasas['TEM %'] = tasas_tem
-    df_tasas = df_tasas.sort_values('Vencimiento')
-
-    # 3. GRÁFICO DE LA CURVA
-    fig_curva = go.Figure()
-    
-    # Línea de Lecaps
-    fig_curva.add_trace(go.Scatter(
-        x=df_tasas['Vencimiento'], 
-        y=df_tasas['TEM %'],
-        mode='lines+markers+text',
-        text=df_tasas['Ticker'],
-        textposition="top center",
-        name='Bonos/Lecaps',
-        line=dict(color='#2ecc71', width=3)
-    ))
-    
-    # Línea de comparación Plazo Fijo
-    fig_curva.add_hline(y=tem_pf, line_dash="dash", line_color="red", 
-                        annotation_text=f"TEM Plazo Fijo ({tem_pf}%)")
-
-    fig_curva.update_layout(
-        title="Curva de Tasas TEM vs Vencimiento",
-        template="plotly_dark",
-        height=450,
-        margin=dict(l=20, r=20, t=50, b=20)
-    )
-    
-    st.plotly_chart(fig_curva, use_container_width=True)
-
-    # 4. TABLA DE DATOS
-    st.write("### Detalle de Tasas por Activo")
-    st.dataframe(df_tasas.style.format({'TEM %': '{:.2f}%'}), use_container_width=True, hide_index=True)
+        # 5. Gráfico de la Curva
+        fig_c = go.Figure()
+        fig_c.add_trace(go.Scatter(
+            x=df_curva['Vencimiento'], 
+            y=df_curva['TEM %'],
+            mode='lines+markers+text',
+            text=df_curva['Ticker'],
+            textposition="top center",
+            line=dict(color='#2ecc71', width=3),
+            name="Curva TEM"
+        ))
+        
+        fig_c.update_layout(
+            template="plotly_dark",
+            height=400,
+            margin=dict(l=10, r=10, t=30, b=10),
+            yaxis_title="TEM %",
+            xaxis_title="Vencimiento"
+        )
+        
+        st.plotly_chart(fig_c, use_container_width=True)
+    # --- HASTA AQUÍ ---
 
 # --- PESTAÑA 3: TASAS Y BONOS (OTRAS MÉTRICAS) ---
 with tab3:
@@ -448,6 +443,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
