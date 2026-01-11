@@ -181,33 +181,34 @@ with tab2:
     fig.update_layout(template="plotly_white", yaxis_title="Inflación %")
     st.plotly_chart(fig, use_container_width=True)
 
-# --- PESTAÑA 3: TASAS Y BONOS (BYMA INTEGRADO) ---
-with tab3:
-    st.subheader("🏦 Mercado de Deuda y Tasas BNA")
+# --- PESTAÑA 2: CURVA DE RENDIMIENTOS ---
+with tab2:
+    st.subheader("📍 Curva de Rendimientos - Gorostiaga Bursátil")
     
-  with tab2:
-    st.subheader("📍 Curva de Rendimientos")
-    # Estas líneas deben tener EXACTAMENTE la misma sangría
+    # Definimos los datos (Todos alineados bajo el 'with')
     t_nombres = ["S31M6", "S30J6", "S29A6", "TO26", "M13F6", "M16E6", "M27F6", "M30A6", "M31G6", "S17E6", "S27F6", "S29Y6", "S30A6", "S30N6", "S30O6", "S31G6", "T31F6"]
     t_vencimientos = ["2026-03-31", "2026-06-30", "2026-08-29", "2026-10-17", "2026-02-13", "2026-01-16", "2026-02-27", "2026-04-30", "2026-07-31", "2026-01-17", "2026-02-27", "2026-05-29", "2026-04-30", "2026-11-30", "2026-10-30", "2026-07-31", "2026-02-28"]
     t_tasas = [3.1, 3.2, 3.4, 3.8, 2.9, 2.8, 3.0, 3.1, 3.3, 2.7, 3.0, 3.2, 3.1, 3.5, 3.4, 3.2, 2.9]
-        
-        # 2. Creamos un diccionario limpio fuera del DataFrame
-        data_dict = dict(Ticker=t_nombres, Vencimiento=t_vencimientos, TEM_pct=t_tasas)
+    
+    # Creamos el diccionario y el DataFrame
+    data_dict = dict(Ticker=t_nombres, Vencimiento=t_vencimientos, TEM_pct=t_tasas)
+    df_curva = pd.DataFrame(data_dict)
 
-        # 3. Construimos el DataFrame
-        df_curva = pd.DataFrame(data_dict)
+    # Formateo de fechas y orden
+    df_curva['Vencimiento'] = pd.to_datetime(df_curva['Vencimiento'])
+    df_curva = df_curva.sort_values('Vencimiento')
 
-        # 4. Formateo y Visualización
-        df_curva['Vencimiento'] = pd.to_datetime(df_curva['Vencimiento'])
-        df_curva = df_curva.sort_values('Vencimiento')
+    # Visualización profesional
+    st.dataframe(
+        df_curva.style.format({'TEM_pct': '{:.1f}%'}),
+        use_container_width=True,
+        hide_index=True
+    )
 
-        st.dataframe(
-            df_curva.style.format({'TEM_pct': '{:.1f}%'}),
-            use_container_width=True,
-            hide_index=True
-        )
-
+# --- PESTAÑA 3: TASAS Y BONOS (OTRAS MÉTRICAS) ---
+with tab3:
+    st.subheader("🏦 Mercado de Deuda y Tasas BNA")
+    st.write("Información adicional sobre licitaciones y tasas de referencia.")
 # --- MONITOR GLOBAL COMPLETO: TASAS, COMMODITIES E ÍNDICES ---
     st.markdown("---")
     st.subheader("🌍 Monitor de Mercados Globales")
@@ -415,6 +416,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
