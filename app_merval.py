@@ -207,8 +207,8 @@ with tab3:
         df_curva = pd.DataFrame({
             'Plazo': [3, 6, 8, 10], 
             'TEM': [3.80, 3.92, 4.10, 4.50],
-            'Ticker': ["S31M6", "S30J6", "S29A6", "TO26", "M13F6", "M16E6", "M27F6", M30A6, "M31G6", "S17E6", S27F6", S29Y6", "S30A6", "S30N6", "S30O6", "S31G6", "T31F6"]
-        })
+            # Línea 210 corregida:
+'Ticker': ["S31M6", "S30J6", "S29A6", "TO26", "M13F6", "M16E6", "M27F6", "M30A6", "M31G6", "S17E6", "S27F6", "S29Y6", "S30A6", "S30N6", "S30O6", "S31G6", "T31F6"]
 
         # Gráfico de la curva
         fig_curva = go.Figure()
@@ -439,6 +439,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
