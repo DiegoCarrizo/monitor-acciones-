@@ -524,10 +524,10 @@ with tab5:
 
     @st.cache_data(ttl=600)
     def obtener_dolares_reales():
-        # Dólar Oficial actualizado al valor real (A3500 / Referencia)
+        # Dólar Oficial actualizado al valor real actual
         datos = {"oficial": 1480.00, "mep": 1430.00, "ccl": 1460.00}
         try:
-            # Buscamos últimos 7 días para asegurar el cierre del viernes
+            # Traemos 7 días para asegurar el cierre del viernes durante el fin de semana
             al30 = yf.download("AL30.BA", period="7d", progress=False)
             al30d = yf.download("AL30D.BA", period="7d", progress=False)
             if not al30.empty and not al30d.empty:
@@ -556,7 +556,7 @@ with tab5:
 
     # --- MÉTRICAS ---
     c1, c2, c3 = st.columns(3)
-    c1.metric("Dólar Oficial", f"${mkt['oficial']:,.2f}", "Referencia A3500")
+    c1.metric("Dólar Oficial", f"${mkt['oficial']:,.2f}", "Ref. A3500")
     c2.metric("Dólar MEP", f"${mkt['mep']:,.2f}", f"{brecha_mep:.2f}% brecha")
     c3.metric("Dólar CCL", f"${mkt['ccl']:,.2f}", f"{brecha_ccl:.2f}% brecha")
 
@@ -564,9 +564,9 @@ with tab5:
     st.markdown("---")
     st.subheader("🇦🇷 Diagnóstico de Inversión")
     
-    # Parámetros para la recomendación (Podes ajustar según el REM o datos BCRA)
-    tasa_interes_real = 3.8  # TEM de Lecaps (Pestaña 2)
-    inflacion_o_emision = 3.0 # Tasa de expansión de la moneda
+    # Parámetros de la tesis (Ajustables según coyuntura)
+    tasa_interes_real = 3.8  
+    inflacion_o_emision = 3.0 
     
     col_a1, col_a2 = st.columns([2, 1])
 
@@ -575,37 +575,34 @@ with tab5:
             st.success("### 💹 Recomendación: Mantenerse en PESOS (Tasa)")
             st.write(f"""
             **Tesis:** La tasa de interés real ({tasa_interes_real}%) compensa la pérdida de poder adquisitivo. 
-            Cuando hay un orden monetario que restringe la emisión, la moneda local 
-            actúa como un medio de intercambio eficiente. La 'Preferencia Temporal' hoy premia el ahorro en pesos.
+            Si el orden monetario restringe la emisión, la moneda 
+            recupera su función de ahorro. La 'Preferencia Temporal' hoy premia la tasa local.
             """)
         else:
             st.error("### 💵 Recomendación: Dolarizar (Cobertura)")
             st.write("""
-            **Tesis:** La inflación es un proceso de transferencia de riqueza mediante 
-            la dilución monetaria. Si la tasa no cubre la expansión, el peso es un 'bien en desuso'. 
-            Debes refugiarte en activos de escasez (Dólar) para preservar el capital frente al ciclo económico.
+            **Tesis:** La inflación es un proceso de dilución monetaria. 
+            Si la tasa no cubre la expansión del crédito, el peso es un 'bien en desuso'. 
+            Debes refugiarte en activos de escasez (Dólar) para preservar capital.
             """)
-
-    with col_cap_img:
-        
 
     with col_a2:
         st.info("**Termómetro**")
         st.write(f"- **Tasa Real:** {tasa_interes_real}%")
-        st.write("- **Canje:** " + f"{canje:.2f}%")
-        st.write("- **Estado:** " + ("Sinceramiento" if brecha_mep < 20 else "Distorsión"))
+        st.write(f"- **Spread Canje:** {canje:.2f}%")
+        estado_mkt = "Sinceramiento" if brecha_mep < 20 else "Distorsión"
+        st.write(f"- **Estado:** {estado_mkt}")
 
     # --- TABLA DE CIERRE ---
     st.markdown("### 📋 Detalle Técnico al Cierre")
     df_dolares = pd.DataFrame([
-        {"Dólar": "Oficial Mayorista", "Valor": mkt['oficial'], "Canje Implícito": "-"},
-        {"Dólar": "MEP (AL30 BYMA)", "Valor": mkt['mep'], "Canje Implícito": "-"},
-        {"Dólar": "CCL (Especie C)", "Valor": mkt['ccl'], "Canje Implícito": f"{canje:.2f}%"}
+        {"Dólar": "Oficial Mayorista", "Valor": mkt['oficial'], "Canje": "-"},
+        {"Dólar": "MEP (AL30 BYMA)", "Valor": mkt['mep'], "Canje": "-"},
+        {"Dólar": "CCL (Especie C)", "Valor": mkt['ccl'], "Canje": f"{canje:.2f}%"}
     ])
     st.dataframe(df_dolares.style.format({'Valor': '${:,.2f}'}), use_container_width=True, hide_index=True)
 
-    st.info(f"**Nota de Mercado:** Precios congelados al cierre del viernes. El Canje del {canje:.2f}% indica el costo de arbitraje para movilizar capitales fuera del sistema local.")
-
+    st.caption(f"Nota: Datos congelados al cierre del viernes. El canje del {canje:.2f}% representa el costo de arbitraje para movilizar capitales fuera del sistema local.")
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
 st.markdown(
@@ -617,6 +614,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
