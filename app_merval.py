@@ -462,21 +462,12 @@ with tab5:
     fig_embi.update_layout(template="plotly_dark", height=500, margin=dict(l=20, r=20, t=10, b=10))
     st.plotly_chart(fig_embi, use_container_width=True)
 
-# --- PESTAÑA 4: ESTRATEGIA MAYER & GLOBAL MACRO ---
+# --- MONITOR DE ACTIVOS GLOBAL - MÚLTIPLO DE MAYER ---
 with tab4:
-    st.subheader("🌐 Bitcoin vs Liquidez Global (M2)")
+    st.subheader("🌐 Monitor Global de Activos - Múltiplo de Mayer")
     
-    # 1. EMBEBIDO DIRECTO DEL GRÁFICO DE BITCOINCOUNTERFLOW
-    # Esto cargará la web original dentro de tu app de forma interactiva
-    st.components.v1.iframe("https://bitcoincounterflow.com/charts/m2-global/", height=600, scrolling=True)
-
-    st.markdown("---")
-
-    # 2. CÁLCULO DEL MÚLTIPLO DE MAYER EN TIEMPO REAL
-    st.subheader("📊 Monitor de Activos (Múltiplo de Mayer)")
-    
-    # Lista de activos para la tabla comparativa
-    activos_mayer = {
+    # 1. DEFINICIÓN DE ACTIVOS (Balanceado: 7 Tickers y 7 Nombres)
+    activos_globales = {
         "Bitcoin": "BTC-USD",
         "Oro": "GC=F",
         "Plata": "SI=F",
@@ -488,22 +479,23 @@ with tab4:
 
     mayer_results = []
     
-    for nombre, ticker in activos_mayer.items():
+    # 2. PROCESAMIENTO CON ERROR HANDLING
+    for nombre, ticker in activos_globales.items():
         try:
-            # Traemos datos para calcular la MA200
+            # Traemos datos históricos para MA200
             df_m = yf.download(ticker, period="1y", progress=False)
             if not df_m.empty:
-                precio_hoy = df_m['Close'].iloc[-1]
-                ma200 = df_m['Close'].rolling(window=200).mean().iloc[-1]
+                precio_hoy = float(df_m['Close'].iloc[-1])
+                ma200 = float(df_m['Close'].rolling(window=200).mean().iloc[-1])
                 m_multiple = precio_hoy / ma200
                 
-                # Clasificación profesional
+                # Clasificación de Estado
                 if m_multiple < 1.0:
-                    estado = "🟢 Oportunidad (Subvaluado)"
+                    estado = "🟢 Oportunidad"
                 elif m_multiple < 2.4:
                     estado = "🟡 Neutro / Alcista"
                 else:
-                    estado = "🔴 Sobrecompra (Burbuja)"
+                    estado = "🔴 Sobrecompra"
                 
                 mayer_results.append({
                     "Activo": nombre,
@@ -511,18 +503,21 @@ with tab4:
                     "Mayer Multiple": round(m_multiple, 2),
                     "Estado": estado
                 })
-        except:
+        except Exception:
+            # Si falla un ticker, continúa con el siguiente para no romper la tabla
             continue
 
-    # 3. TABLA DE MÚLTIPLOS
-    df_mayer_final = pd.DataFrame(mayer_results)
-    st.dataframe(df_mayer_final, use_container_width=True, hide_index=True)
+    # 3. RENDERIZADO DE LA TABLA
+    if mayer_results:
+        df_mayer_final = pd.DataFrame(mayer_results)
+        st.dataframe(df_mayer_final, use_container_width=True, hide_index=True)
+    else:
+        st.warning("No se pudieron obtener datos de mercado en este momento. Verificá la conexión con Yahoo Finance.")
 
-    st.info("""
-    **Interpretación para el Cliente:**
-    El gráfico superior muestra cómo el precio de Bitcoin sigue la expansión de la masa monetaria mundial (M2). 
-    Si la M2 sube y el **Múltiplo de Mayer** está cerca de 1.0, es una señal histórica de compra de alta probabilidad.
-    """)
+    # 4. GRÁFICO DE M2 GLOBAL (IFRAME)
+    st.markdown("---")
+    st.subheader("📊 Bitcoin vs Liquidez Global (M2)")
+    st.components.v1.iframe("https://bitcoincounterflow.com/charts/m2-global/", height=600, scrolling=True)
     
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
@@ -535,6 +530,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
