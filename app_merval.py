@@ -61,7 +61,6 @@ with tab1:
         for t in lista_tickers:
             try:
                 tk_obj = yf.Ticker(t, session=session)
-                # Pedimos 7 días para cubrir cierres de fin de semana
                 hist = tk_obj.history(period="7d")
                 
                 if not hist.empty and len(hist) > 1:
@@ -69,8 +68,6 @@ with tab1:
                     precio_ayer = hist['Close'].iloc[-2]
                     var_diaria = ((precio_actual / precio_ayer) - 1) * 100
                     
-                    # Media Móvil 200 (Solo si hay suficiente historia)
-                    # Para optimizar, no descargamos 2 años aquí, usamos el promedio de info si existe
                     info = tk_obj.info
                     sma_200 = info.get('twoHundredDayAverage', precio_actual)
                     tendencia = "📈 BULL" if precio_actual > sma_200 else "📉 BEAR"
@@ -93,24 +90,44 @@ with tab1:
                 continue
         return pd.DataFrame(data_resumen)
 
-    # 2. EJECUCIÓN
     df_acciones = obtener_datos_completos(list(tickers_dict.keys()))
 
     if not df_acciones.empty:
-        # Buscador
-        busqueda = st.text_input("🔍 Buscar activo por nombre o ticker...")
+        busqueda = st.text_input("🔍 Buscar activo...")
         df_filtrada = df_acciones.copy()
         if busqueda:
             df_filtrada = df_acciones[df_acciones['Activo'].str.contains(busqueda, case=False) | 
                                       df_acciones['Ticker'].str.contains(busqueda, case=False)]
 
-        # --- TABLA ESTILIZADA ---
+        # --- TABLA CON ESTILO CORREGIDO ---
+        # Se separaron las funciones de estilo para evitar el error de Syntax
+        def color_variacion(val):
+            color = '#27ae60' if val > 0 else '#e74c3c'
+            return f'color: {color}; font-weight: bold'
+
+        def color_tendencia(val):
+            bg = '#1e4620' if "BULL" in val else '#4a1c1c'
+            return f'background-color: {bg}; color: white; font-weight: bold'
+
         st.dataframe(
-            df_filtrada.style.format({
-                'Precio': '${:,.2f}', 
-                'Var %': '{:,.2f}%'
-            }).applymap(
-                lambda x: 'color: #27ae60; font-weight:
+            df_filtrada.style.format({'Precio': '${:,.2f}', 'Var %': '{:,.2f}%'})
+            .applymap(color_variacion, subset=['Var %'])
+            .applymap(color_tendencia, subset=['Tendencia']),
+            use_container_width=True, hide_index=True
+        )
+
+        # --- GRÁFICO ---
+        st.markdown("---")
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=df_filtrada['Ticker'],
+            y=df_filtrada['Var %'],
+            marker_color=['#27ae60' if x > 0 else '#e74c3c' for x in df_filtrada['Var %']]
+        ))
+        fig.update_layout(template="plotly_dark", height=400, title="Variación Diaria %")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.error("No se pudieron cargar los datos. Verificá la conexión.")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Inflación 2025-2026")
@@ -559,6 +576,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
