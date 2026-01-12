@@ -523,66 +523,77 @@ with tab5:
     st.subheader("⚖️ Monitor de Arbitraje de Moneda (BYMA)")
 
     @st.cache_data(ttl=600)
-    def obtener_dolares_byma():
-        # Valores de respaldo (Fallback) por si la API falla
-        dolares = {
-            "oficial": 1055.00,
-            "mep": 1180.00,
-            "ccl": 1240.00
+    def obtener_dolares_reales():
+        # 1. DEFINICIÓN DE VALORES (Actualizados a la realidad del mercado)
+        # El oficial hoy ronda los 1480 según el crawling peg y ajustes
+        datos = {
+            "oficial": 1480.00, 
+            "mep": 1430.00,  # Valores de referencia por si falla la API
+            "ccl": 1460.00
         }
         
         try:
-            # MEP vía AL30 (Pedimos 5 días para evitar el error de mercado cerrado)
-            al30_data = yf.download("AL30.BA", period="5d", progress=False)
-            al30d_data = yf.download("AL30D.BA", period="5d", progress=False)
+            # MEP: Usamos AL30/AL30D con un periodo más largo para capturar el cierre del viernes
+            # Buscamos en los últimos 7 días para estar cubiertos en feriados largos
+            al30 = yf.download("AL30.BA", period="7d", progress=False)
+            al30d = yf.download("AL30D.BA", period="7d", progress=False)
             
-            if not al30_data.empty and not al30d_data.empty:
-                mep_calc = al30_data['Close'].iloc[-1] / al30d_data['Close'].iloc[-1]
-                dolares["mep"] = float(mep_calc)
+            if not al30.empty and not al30d.empty:
+                # Tomamos el último valor disponible (iloc[-1])
+                precio_pesos = al30['Close'].dropna().iloc[-1]
+                precio_dolares = al30d['Close'].dropna().iloc[-1]
+                if precio_dolares > 0:
+                    datos["mep"] = float(precio_pesos / precio_dolares)
 
-            # CCL vía GGAL (Local vs ADR)
-            ggal_ba = yf.download("GGAL.BA", period="5d", progress=False)
-            ggal_us = yf.download("GGAL", period="5d", progress=False)
+            # CCL: Usamos Galicia (GGAL.BA / GGAL ADR)
+            ggal_ba = yf.download("GGAL.BA", period="7d", progress=False)
+            ggal_us = yf.download("GGAL", period="7d", progress=False)
             
             if not ggal_ba.empty and not ggal_us.empty:
-                ccl_calc = (ggal_ba['Close'].iloc[-1] / ggal_us['Close'].iloc[-1]) * 10
-                dolares["ccl"] = float(ccl_calc)
+                precio_local = ggal_ba['Close'].dropna().iloc[-1]
+                precio_adr = ggal_us['Close'].dropna().iloc[-1]
+                if precio_adr > 0:
+                    # El factor de conversión de GGAL es 10
+                    datos["ccl"] = float((precio_local / precio_adr) * 10)
 
-        except Exception:
-            st.info("Nota: Mostrando últimos cierres disponibles.")
+        except Exception as e:
+            st.sidebar.warning("Usando cierres históricos para dólares financieros.")
             
-        return dolares
+        return datos
 
-    mkt = obtener_dolares_byma()
+    mkt = obtener_dolares_reales()
 
-    # --- MÉTRICAS DE DÓLAR ---
-    col_m1, col_m2, col_m3 = st.columns(3)
+    # --- MÉTRICAS DE IMPACTO ---
+    c1, c2, c3 = st.columns(3)
     
-    # Cálculo de Brechas
+    # Cálculos de Brecha
     brecha_mep = (mkt['mep'] / mkt['oficial'] - 1) * 100
     brecha_ccl = (mkt['ccl'] / mkt['oficial'] - 1) * 100
 
-    col_m1.metric("Dólar Oficial", f"${mkt['oficial']:,.2f}")
-    col_m2.metric("Dólar MEP (AL30)", f"${mkt['mep']:,.2f}", f"{brecha_mep:.1f}% brecha")
-    col_m3.metric("Dólar CCL (GGAL)", f"${mkt['ccl']:,.2f}", f"{brecha_ccl:.1f}% brecha")
+    c1.metric("Dólar Oficial", f"${mkt['oficial']:,.2f}", "A3500 BCRA")
+    c2.metric("Dólar MEP (BYMA)", f"${mkt['mep']:,.2f}", f"{brecha_mep:.2f}% brecha")
+    c3.metric("Dólar CCL (Senebi)", f"${mkt['ccl']:,.2f}", f"{brecha_ccl:.2f}% brecha")
 
-    # --- TABLA COMPARATIVA ---
+    # --- TABLA TÉCNICA DE ARBITRAJE ---
     st.markdown("---")
-    st.write("### 📋 Comparativa de Brechas")
+    st.write("### 📋 Análisis de Spreads y Canje")
+    
+    canje = ((mkt['ccl'] / mkt['mep']) - 1) * 100
     
     df_dolares = pd.DataFrame([
-        {"Instrumento": "Dólar MEP (BYMA)", "Precio": mkt['mep'], "Brecha vs Oficial": f"{brecha_mep:.2f}%"},
-        {"Instrumento": "Dólar CCL (Cedear/ADR)", "Precio": mkt['ccl'], "Brecha vs Oficial": f"{brecha_ccl:.2f}%"},
-        {"Instrumento": "Canje (CCL/MEP)", "Precio": mkt['ccl']/mkt['mep'], "Brecha vs Oficial": f"{((mkt['ccl']/mkt['mep'])-1)*100:.2f}% (Spread)"}
+        {"Dólar": "Oficial Mayorista", "Valor": mkt['oficial'], "Brecha": "-"},
+        {"Dólar": "MEP (Bono AL30)", "Valor": mkt['mep'], "Brecha": f"{brecha_mep:.2f}%"},
+        {"Dólar": "CCL (Especie C)", "Valor": mkt['ccl'], "Brecha": f"{brecha_ccl:.2f}%"},
+        {"Dólar": "Canje (Spread)", "Valor": mkt['ccl']/mkt['mep'], "Brecha": f"{canje:.2f}%"}
     ])
 
-    st.dataframe(df_dolares, use_container_width=True, hide_index=True)
+    st.dataframe(
+        df_dolares.style.format({'Valor': '${:,.2f}'}),
+        use_container_width=True, 
+        hide_index=True
+    )
 
-    st.info("""
-    **Asesoría Gorostiaga:** * El **Dólar MEP** es el precio de salida vía bonos locales (AL30).
-    * El **Dólar CCL** es el valor implícito para girar divisas al exterior.
-    * El **Canje** indica el costo de pasar de dólares MEP a dólares cable (CCL).
-    """)
+    st.info(f"**Nota de Mercado:** El fin de semana se mantienen los precios de cierre del viernes. El 'Canje' del {canje:.2f}% indica el costo actual para fugar divisas o entrar capital al país.")
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
 st.markdown(
@@ -594,6 +605,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
