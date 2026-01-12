@@ -43,7 +43,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026",
 with tab1:
     st.subheader("🏛️ Terminal de Valuación & Target Prices")
 
-    # 1. DEFINICIÓN DE DATOS (Primero definimos el diccionario para evitar el NameError)
+    # 1. DEFINICIÓN DE DATOS (Primero los datos para evitar NameError)
     tickers_dict = {
         'ALUA.BA': '🇦🇷 Aluar', 'BBAR.BA': '🇦🇷 BBVA Francés', 'BMA.BA': '🇦🇷 Banco Macro',
         'BYMA.BA': '🇦🇷 BYMA', 'CEPU.BA': '🇦🇷 Central Puerto', 'COME.BA': '🇦🇷 Comercial Plata',
@@ -79,7 +79,7 @@ with tab1:
                 target = info.get('targetMeanPrice', 0)
                 upside = ((target / p_actual) - 1) * 100 if target else 0
                 
-                # Lógica de Valuación Austríaca (Precio vs Activos Reales)
+                # Valuación Austríaca (Precio vs Activos Reales)
                 if pb == 0: val_status = "S/D"
                 elif pb < 1.0: val_status = "🟢 BARATO"
                 elif 1.0 <= pb <= 2.5: val_status = "🟡 NEUTRO"
@@ -99,14 +99,14 @@ with tab1:
                 continue
         return pd.DataFrame(res)
 
-    # 4. EJECUCIÓN (Ahora tickers_dict ya existe, no dará error)
+    # 4. EJECUCIÓN
     df_quant = obtener_datos_pro(list(tickers_dict.keys()))
 
     if not df_quant.empty:
-        # Estilización de la Tabla
+        # Estilo de la Tabla
         def style_val(v):
-            if "BARATO" in v: return 'background-color: #1e4620; color: #adff2f; font-weight: bold'
-            if "CARO" in v: return 'background-color: #4a1c1c; color: #ffcccb; font-weight: bold'
+            if "BARATO" in str(v): return 'background-color: #1e4620; color: #adff2f; font-weight: bold'
+            if "CARO" in str(v): return 'background-color: #4a1c1c; color: #ffcccb; font-weight: bold'
             return ''
 
         st.dataframe(
@@ -117,7 +117,7 @@ with tab1:
 
     st.markdown("---")
 
-    # 5. TRADINGVIEW GAUGE (Análisis Técnico)
+    # 5. TRADINGVIEW GAUGE (Widget Técnico)
     st.subheader("🎯 Sentimiento Técnico & Consenso")
     col_g1, col_g2 = st.columns([3, 2])
     
@@ -125,12 +125,30 @@ with tab1:
         sel = st.selectbox("Activo para análisis técnico:", list(tickers_dict.keys()))
         tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
         
-        tv_gauge = f"""
+        # Widget corregido con cierre de comillas estricto
+        tv_gauge_code = f"""
         <div class="tradingview-widget-container">
           <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
           {{
-            "interval": "1D", "width": "100%", "isTransparent": true, "height": 400,
-            "symbol": "{tv_s}", "showIntervalTabs": true, "displayMode": "single", "locale": "
+            "interval": "1D",
+            "width": "100%",
+            "isTransparent": true,
+            "height": 400,
+            "symbol": "{tv_s}",
+            "showIntervalTabs": true,
+            "displayMode": "single",
+            "locale": "es",
+            "theme": "dark"
+          }}
+          </script>
+        </div>
+        """
+        st.components.v1.html(tv_gauge_code, height=420)
+
+    with col_g2:
+        st.info(f"📊 **Análisis para {sel}**")
+        st.write("La métrica **P/B (Price to Book)** indica cuántas veces pagás el valor contable de la empresa.")
+        st.write("En la visión austríaca, comprar por debajo de **P/B 1.0** es adquirir activos con descuento sobre su costo de reposición.")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Inflación 2025-2026")
@@ -579,6 +597,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
