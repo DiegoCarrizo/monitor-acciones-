@@ -1,12 +1,17 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import yfinance as yf
 import plotly.graph_objects as go
-import plotly.express as px
-import streamlit.components.v1 as components
 import requests
-from bs4 import BeautifulSoup
-import yfinance as yf  # <--- ESTA ES LA LÍNEA QUE FALTA
+from datetime import datetime, timedelta
+
+# --- CONFIGURACIÓN DE CONEXIÓN SEGURA ---
+session = requests.Session()
+session.headers.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+})
+
+st.set_page_config(page_title="Gorostiaga Monitor", layout="wide")
 
 # --- 1. DEFINICIÓN DE FUNCIONES (PONER AQUÍ ARRIBA) ---
 def obtener_riesgo_pais_oficial():
@@ -599,6 +604,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
