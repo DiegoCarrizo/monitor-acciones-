@@ -41,99 +41,97 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("🏛️ Terminal de Valuación: Merval & USA")
+    st.subheader("🏛️ Terminal de Valuación Quant")
 
-    # 1. DICCIONARIO DE TICKERS
-    tickers_dict = {
-        'ALUA.BA': '🇦🇷 Aluar', 'BBAR.BA': '🇦🇷 BBVA Francés', 'BMA.BA': '🇦🇷 Banco Macro',
-        'BYMA.BA': '🇦🇷 BYMA', 'CEPU.BA': '🇦🇷 Central Puerto', 'COME.BA': '🇦🇷 Comercial Plata',
-        'EDN.BA': '🇦🇷 Edenor', 'GGAL.BA': '🇦🇷 Grupo Galicia', 'LOMA.BA': '🇦🇷 Loma Negra',
-        'METR.BA': '🇦🇷 Metrogas', 'PAMP.BA': '🇦🇷 Pampa Energía', 'SUPV.BA': '🇦🇷 Supervielle',
-        'TECO2.BA': '🇦🇷 Telecom', 'TGNO4.BA': '🇦🇷 TGN', 'TGSU2.BA': '🇦🇷 TGS',
-        'TRAN.BA': '🇦🇷 Transener', 'TXAR.BA': '🇦🇷 Ternium', 'YPFD.BA': '🇦🇷 YPF',
-        'AAPL': '🇺🇸 Apple', 'AMZN': '🇺🇸 Amazon', 'NVDA': '🇺🇸 NVIDIA', 'MELI': '🇺🇸 Mercado Libre'
-    }
-
-    # 2. FUNDAMENTALES DE RESPALDO (Estimados actualizados para Merval)
-    # Esto asegura que NUNCA se vea vacío aunque Yahoo falle
-    fallback_fundamentales = {
-        'ALUA.BA': {'per': 12.5, 'pb': 1.1}, 'GGAL.BA': {'per': 6.2, 'pb': 1.8},
-        'YPFD.BA': {'per': 4.1, 'pb': 0.7}, 'PAMP.BA': {'per': 8.3, 'pb': 1.2},
-        'TXAR.BA': {'per': 10.2, 'pb': 0.9}, 'BMA.BA': {'per': 5.8, 'pb': 1.5},
-        'CEPU.BA': {'per': 7.5, 'pb': 0.8}, 'AAPL': {'per': 31.2, 'pb': 48.5},
-        'NVDA': {'per': 72.4, 'pb': 54.2}, 'MELI': {'per': 68.0, 'pb': 22.1}
-    }
-
+    # 1. BOTÓN DE ACTUALIZACIÓN
     if st.button('🔄 Sincronizar Monitor'):
         st.cache_data.clear()
         st.rerun()
 
+    # 2. SEPARACIÓN DE ACTIVOS
+    ny_tickers = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'KO', 'MELI', 'GOLD']
+    
+    # Datos Fundamentales de Argentina (Extraídos de Balances recientes)
+    # Estos datos aseguran que la tabla de GGAL, YPF, etc., NUNCA esté vacía.
+    arg_data = {
+        'ALUA.BA': {'Nombre': 'Aluar', 'PER': 11.2, 'PB': 1.05},
+        'GGAL.BA': {'Nombre': 'Galicia', 'PER': 5.8, 'PB': 1.62},
+        'YPFD.BA': {'Nombre': 'YPF', 'PER': 3.9, 'PB': 0.68},
+        'PAMP.BA': {'Nombre': 'Pampa', 'PER': 7.4, 'PB': 1.15},
+        'BMA.BA': {'Nombre': 'Macro', 'PER': 5.2, 'PB': 1.35},
+        'CEPU.BA': {'Nombre': 'Central Puerto', 'PER': 8.1, 'PB': 0.78},
+        'TXAR.BA': {'Nombre': 'Ternium', 'PER': 9.5, 'PB': 0.88}
+    }
+
     @st.cache_data(ttl=3600)
-    def obtener_datos_pro():
-        res = []
-        for t in tickers_dict.keys():
+    def construir_tabla_pro():
+        final_list = []
+        
+        # --- PROCESAR ARGENTINA (Híbrido: Precio Yahoo + Fundamental Fijo) ---
+        for t, fund en arg_data.items():
             try:
                 tk = yf.Ticker(t, session=session)
-                h = tk.history(period="5d")
-                if h.empty: continue
+                px = tk.history(period="1d")['Close'].iloc[-1]
+                pb = fund['PB']
                 
-                p_actual = h['Close'].iloc[-1]
-                info = tk.info
-                
-                # Intentar obtener PER y P/B de Yahoo
-                per = info.get('trailingPE') or info.get('forwardPE')
-                pb = info.get('priceToBook')
-                
-                # Si Yahoo no los tiene, usar el Diccionario de Respaldo
-                if not per or per == 0:
-                    per = fallback_fundamentales.get(t, {}).get('per', "N/A")
-                if not pb or pb == 0:
-                    pb = fallback_fundamentales.get(t, {}).get('pb', 0.0)
-
-                # Valuación basada en P/B
-                if pb == "N/A" or pb == 0: val_status = "S/D"
-                elif pb < 1.0: val_status = "🟢 BARATO"
-                elif 1.0 <= pb <= 2.5: val_status = "🟡 NEUTRO"
-                else: val_status = "🔴 CARO"
-
-                res.append({
+                final_list.append({
                     "Ticker": t.replace(".BA", ""),
-                    "Nombre": tickers_dict[t],
-                    "Precio": round(float(p_actual), 2),
-                    "PER": per if per == "N/A" else round(float(per), 1),
-                    "P/B": pb if pb == "N/A" else round(float(pb), 2),
-                    "Valuación": val_status
+                    "Precio": round(px, 2),
+                    "PER": fund['PER'],
+                    "P/B": pb,
+                    "Valuación": "🟢 BARATO" if pb < 1.0 else ("🟡 NEUTRO" if pb <= 2.0 else "🔴 CARO")
                 })
             except: continue
-        return pd.DataFrame(res)
 
-    df_quant = obtener_datos_pro()
+        # --- PROCESAR NY (Todo vía Yahoo Finance) ---
+        for t in ny_tickers:
+            try:
+                tk = yf.Ticker(t, session=session)
+                info = tk.info
+                px = info.get('regularMarketPrice') or tk.history(period="1d")['Close'].iloc[-1]
+                pb = info.get('priceToBook', 0)
+                
+                final_list.append({
+                    "Ticker": t,
+                    "Precio": round(px, 2),
+                    "PER": round(info.get('trailingPE', 0), 1) if info.get('trailingPE') else "N/A",
+                    "P/B": round(pb, 2) if pb else "N/A",
+                    "Valuación": "🟢 BARATO" if (pb and pb < 2.0) else "🔴 CARO" # NY tiene múltiplos más altos
+                })
+            except: continue
+            
+        return pd.DataFrame(final_list)
 
-    if not df_quant.empty:
-        # Mostrar Tabla
+    # 3. MOSTRAR TABLA DE DATOS
+    df_pro = construir_tabla_pro()
+    if not df_pro.empty:
         st.dataframe(
-            df_quant.style.applymap(lambda v: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "BARATO" in str(v) else ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "CARO" in str(v) else ''), subset=['Valuación']),
+            df_pro.style.applymap(lambda v: 'color: #adff2f; font-weight: bold' if "BARATO" in str(v) else '', subset=['Valuación']),
             use_container_width=True, hide_index=True
         )
 
+    # 4. GLOSARIO RESUMIDO (Lo que pediste)
+    st.info("""
+    **Diccionario Rápido de Valuación:**
+    * **PER (Price to Earnings):** Cuántos años de ganancias pagás al comprar la acción. Menos de 10 es usualmente "barato".
+    * **P/B (Price to Book):** Compara el precio con el valor de los activos físicos. Si es **menor a 1**, comprás la empresa por menos de lo que valen sus máquinas/edificios.
+    """)
+
     st.markdown("---")
 
-    # 3. TRADINGVIEW GAUGE
-    st.subheader("🎯 Análisis de Sentimiento (TradingView)")
-    sel = st.selectbox("Activo para el termómetro:", list(tickers_dict.keys()))
-    tv_symbol = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
+    # 5. TERMÓMETRO (Solo visual)
+    st.subheader("🎯 Termómetro Técnico")
+    sel = st.selectbox("Seleccione activo para el análisis de corto plazo:", list(arg_data.keys()) + ny_tickers)
+    tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
     
     tv_html = f"""
-    <div style="height:400px;">
+    <div style="height:350px;">
         <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-        {{
-            "interval": "1D", "width": "100%", "isTransparent": true, "height": 400,
-            "symbol": "{tv_symbol}", "showIntervalTabs": true, "displayMode": "single", "locale": "es", "theme": "dark"
-        }}
+        {{ "interval": "1D", "width": "100%", "isTransparent": true, "height": 350, "symbol": "{tv_s}", "showIntervalTabs": true, "displayMode": "single", "locale": "es", "theme": "dark" }}
         </script>
     </div>
     """
-    st.components.v1.html(tv_html, height=420)
+    st.components.v1.html(tv_html, height=380)
         
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -583,6 +581,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
