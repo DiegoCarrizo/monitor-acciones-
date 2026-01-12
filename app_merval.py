@@ -41,103 +41,105 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("🏛️ Terminal de Valuación: Merval & USA")
+    st.subheader("🏛️ Terminal de Valuación Quant")
 
-    # 1. BOTÓN DE ACTUALIZACIÓN MANUAL
-    if st.button('🔄 Sincronizar Mercado'):
-        st.cache_data.clear()
-        st.rerun()
-
-    # 2. DICCIONARIO DE FUNDAMENTALES (EPS = Ganancia por Acción / BV = Valor Libros)
-    # Estos datos permiten calcular el PER y P/B en tiempo real con el precio de Yahoo
-    datos_base = {
-        'ALUA.BA': {'Nombre': 'Aluar', 'EPS': 135.2, 'BV': 1180.0},
-        'GGAL.BA': {'Nombre': 'Galicia', 'EPS': 285.4, 'BV': 1250.0},
-        'YPFD.BA': {'Nombre': 'YPF', 'EPS': 410.0, 'BV': 38000.0},
-        'PAMP.BA': {'Nombre': 'Pampa', 'EPS': 195.5, 'BV': 1550.0},
-        'BMA.BA': {'Nombre': 'Macro', 'EPS': 240.2, 'BV': 1420.0},
-        'CEPU.BA': {'Nombre': 'Central Puerto', 'EPS': 105.0, 'BV': 1100.0},
-        'TXAR.BA': {'Nombre': 'Ternium', 'EPS': 98.4, 'BV': 1050.0}
+    # 1. DICCIONARIO DE BALANCES (EPS y Valor Libros por acción)
+    # Estos valores son la base del cálculo y no dependen de la API.
+    balances_fijos = {
+        'ALUA.BA': {'EPS': 142.10, 'BV': 980.50},
+        'GGAL.BA': {'EPS': 310.40, 'BV': 1350.20},
+        'YPFD.BA': {'EPS': 420.00, 'BV': 42000.00},
+        'PAMP.BA': {'EPS': 210.30, 'BV': 1680.00},
+        'BMA.BA': {'EPS': 285.60, 'BV': 1520.40},
+        'CEPU.BA': {'EPS': 112.40, 'BV': 1250.00},
+        'TXAR.BA': {'EPS': 105.20, 'BV': 1180.30},
+        'AAPL': {'EPS': 6.57, 'BV': 4.83},
+        'NVDA': {'EPS': 1.80, 'BV': 2.32}
     }
-    
-    ny_list = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'MELI']
 
-    @st.cache_data(ttl=3600)
-    def construir_panel_quant():
-        final = []
-        
-        # --- ARGENTINA (Cálculo Manual sobre Precio Real) ---
-        for t, d in datos_base.items():
-            try:
-                tk = yf.Ticker(t, session=session)
-                h = tk.history(period="5d")
-                if h.empty: continue
-                px = h['Close'].iloc[-1]
-                
-                per = px / d['EPS']
-                pb = px / d['BV']
-                
-                final.append({
-                    "Ticker": t.replace(".BA", ""),
-                    "Precio": round(px, 2),
-                    "PER (Dinamico)": round(per, 1),
-                    "P/B (Libros)": round(pb, 2),
-                    "Estado": "🟢 BARATO" if pb < 1.0 else "🟡 NEUTRO"
-                })
-            except: continue
+    # 2. LÓGICA DE PERSISTENCIA (SESSION STATE)
+    # Si es la primera vez que se abre o si se presiona el botón, se calculan los datos.
+    if 'df_valuacion' not in st.session_state:
+        st.session_state.df_valuacion = None
 
-        # --- USA (Yahoo Finance) ---
-        for t in ny_list:
-            try:
-                tk = yf.Ticker(t, session=session)
-                inf = tk.info
-                px = inf.get('regularMarketPrice') or tk.history(period="1d")['Close'].iloc[-1]
-                per = inf.get('trailingPE') or 30.0 # Default si falla
-                pb = inf.get('priceToBook') or 5.0
-                
-                final.append({
-                    "Ticker": t,
-                    "Precio": round(px, 2),
-                    "PER (Dinamico)": round(per, 1),
-                    "P/B (Libros)": round(pb, 2),
-                    "Estado": "🇺🇸 NY MKT"
-                })
-            except: continue
+    # BOTÓN DE ACTUALIZACIÓN
+    if st.button('🔄 Actualizar y Recalcular Datos'):
+        with st.spinner('Calculando PER y P/B con precios en vivo...'):
+            resultados = []
+            for t, b in balances_fijos.items():
+                try:
+                    tk = yf.Ticker(t, session=session)
+                    # Traemos el precio más reciente
+                    h = tk.history(period="1d")
+                    if h.empty: continue
+                    precio = h['Close'].iloc[-1]
+                    
+                    # CÁLCULO DE RATIOS
+                    per = precio / b['EPS']
+                    pb = precio / b['BV']
+                    
+                    resultados.append({
+                        "Ticker": t.replace(".BA", ""),
+                        "Precio": round(float(precio), 2),
+                        "PER (Años)": round(float(per), 1),
+                        "P/B (Libros)": round(float(pb), 2),
+                        "Valuación": "🟢 BARATO" if pb < 1.0 else "🟡 NEUTRO"
+                    })
+                except: continue
             
-        return pd.DataFrame(final)
+            st.session_state.df_valuacion = pd.DataFrame(resultados)
+            st.success("¡Datos actualizados correctamente!")
 
-    # 3. RENDERIZADO DE TABLA
-    df_q = construir_panel_quant()
-    if not df_q.empty:
-        st.table(df_q)
-    
-    # 4. EXPLICACIÓN RESUMIDA
-    st.markdown("""
-    > **Glosario de Valuación:**
-    > * **PER:** Años de ganancias necesarios para recuperar el capital. (Precio / EPS).
-    > * **P/B:** Relación Precio / Valor Libros. Menor a 1.0 significa que compras activos físicos con descuento.
+    # 3. MOSTRAR LA TABLA (Si existen datos en el estado de la sesión)
+    if st.session_state.df_valuacion is not None:
+        st.dataframe(
+            st.session_state.df_valuacion.style.format({
+                'Precio': '${:,.2f}',
+                'PER (Años)': '{:.1f}',
+                'P/B (Libros)': '{:.2f}'
+            }).applymap(
+                lambda x: 'color: #adff2f; font-weight: bold' if x == "🟢 BARATO" else '',
+                subset=['Valuación']
+            ),
+            use_container_width=True, hide_index=True
+        )
+    else:
+        st.warning("Presione el botón superior para cargar los datos por primera vez.")
+
+    # 4. GLOSARIO RESUMIDO
+    st.markdown("---")
+    st.info("""
+    **Guía Rápida de Inversión:**
+    - **PER:** Años que tarda la empresa en devolver tu inversión vía ganancias.
+    - **P/B:** Relación Precio / Valor contable. Si es menor a 1, la empresa vale menos en bolsa que sus activos físicos.
     """)
 
-    st.markdown("---")
-
-    # 5. TERMÓMETRO TRADINGVIEW (Sintaxis blindada con doble llaves)
-    st.subheader("🎯 Sentimiento Técnico")
-    sel = st.selectbox("Seleccione activo para el Gauge:", list(datos_base.keys()) + ny_list)
+    # 5. INTEGRACIÓN TRADINGVIEW
+    st.subheader("🎯 Análisis Técnico TradingView")
+    sel_acc = st.selectbox("Seleccione activo para el termómetro:", list(balances_fijos.keys()))
     
-    # Sintaxis corregida para evitar el error anterior
-    tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
+    # Manejo de símbolos para TradingView
+    tv_symbol = f"BCBA:{sel_acc.replace('.BA','')}" if ".BA" in sel_acc else sel_acc
     
-    tv_widget = f"""
-    <div style="height:350px;">
+    # Widget con doble llave {{ }} para evitar SyntaxError
+    tv_gauge_html = f"""
+    <div style="height:380px;">
         <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
         {{
-            "interval": "1D", "width": "100%", "isTransparent": true, "height": 350,
-            "symbol": "{tv_s}", "showIntervalTabs": true, "displayMode": "single", "locale": "es", "theme": "dark"
+            "interval": "1D",
+            "width": "100%",
+            "isTransparent": true,
+            "height": 380,
+            "symbol": "{tv_symbol}",
+            "showIntervalTabs": true,
+            "displayMode": "single",
+            "locale": "es",
+            "theme": "dark"
         }}
         </script>
     </div>
     """
-    st.components.v1.html(tv_widget, height=380)
+    st.components.v1.html(tv_gauge_html, height=400)
         
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -587,6 +589,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
