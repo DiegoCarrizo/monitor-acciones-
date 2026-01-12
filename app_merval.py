@@ -2,11 +2,12 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 import requests
+import plotly.graph_objects as go  # <--- Esto soluciona el NameError
+from datetime import datetime
 
-# --- SESIÓN ANTIBLOQUEO ---
-# Esto evita que Yahoo devuelva datos vacíos
+# --- CONFIGURACIÓN DE CABECERAS PARA EVITAR BLOQUEOS ---
 headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 session = requests.Session()
 session.headers.update(headers)
@@ -40,59 +41,76 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("📊 Panel de Acciones - Gorostiaga Bursátil")
+    st.subheader("📊 Monitor de Valuación y Tendencia: Merval & USA")
 
-    # Lista reducida para probar que funcione rápido
+    # 1. LISTA COMPLETA RESTAURADA
     tickers_dict = {
-        'ALUA.BA': 'Aluar', 'GGAL.BA': 'Galicia', 'YPFD.BA': 'YPF', 
-        'PAMP.BA': 'Pampa', 'AAPL': 'Apple', 'NVDA': 'NVIDIA'
+        'ALUA.BA': '🇦🇷 Aluar', 'BBAR.BA': '🇦🇷 BBVA Francés', 'BMA.BA': '🇦🇷 Banco Macro',
+        'BYMA.BA': '🇦🇷 BYMA', 'CEPU.BA': '🇦🇷 Central Puerto', 'COME.BA': '🇦🇷 Comercial Plata',
+        'EDN.BA': '🇦🇷 Edenor', 'GGAL.BA': '🇦🇷 Grupo Galicia', 'LOMA.BA': '🇦🇷 Loma Negra',
+        'METR.BA': '🇦🇷 Metrogas', 'PAMP.BA': '🇦🇷 Pampa Energía', 'SUPV.BA': '🇦🇷 Supervielle',
+        'TECO2.BA': '🇦🇷 Telecom', 'TGNO4.BA': '🇦🇷 TGN', 'TGSU2.BA': '🇦🇷 TGS',
+        'TRAN.BA': '🇦🇷 Transener', 'TXAR.BA': '🇦🇷 Ternium', 'YPFD.BA': '🇦🇷 YPF',
+        'AAPL': '🇺🇸 Apple', 'AMZN': '🇺🇸 Amazon', 'MSFT': '🇺🇸 Microsoft', 'NVDA': '🇺🇸 NVIDIA',
+        'TSLA': '🇺🇸 Tesla', 'KO': '🇺🇸 Coca-Cola', 'MELI': '🇺🇸 Mercado Libre', 'GOLD': '🇺🇸 Barrick Gold'
     }
 
     @st.cache_data(ttl=600)
-    def obtener_datos_seguros(lista_tickers):
-        resultados = []
-        for ticker in lista_tickers:
+    def obtener_datos_completos(lista_tickers):
+        data_resumen = []
+        for t in lista_tickers:
             try:
-                # Usamos la sesión configurada arriba
-                tk = yf.Ticker(ticker, session=session)
-                # Pedimos 5 días para asegurar que encuentre el cierre del viernes
-                hist = tk.history(period="5d")
+                tk_obj = yf.Ticker(t, session=session)
+                # Pedimos 7 días para cubrir cierres de fin de semana
+                hist = tk_obj.history(period="7d")
                 
-                if not hist.empty:
-                    p_actual = hist['Close'].iloc[-1]
-                    p_anterior = hist['Close'].iloc[-2]
-                    cambio = ((p_actual / p_anterior) - 1) * 100
+                if not hist.empty and len(hist) > 1:
+                    precio_actual = hist['Close'].iloc[-1]
+                    precio_ayer = hist['Close'].iloc[-2]
+                    var_diaria = ((precio_actual / precio_ayer) - 1) * 100
                     
-                    resultados.append({
-                        "Ticker": ticker.replace(".BA", ""),
-                        "Empresa": tickers_dict[ticker],
-                        "Precio": round(p_actual, 2),
-                        "Var %": round(cambio, 2),
-                        "Cierre": hist.index[-1].strftime('%d/%m')
-                    })
-            except Exception as e:
-                continue # Si una falla, sigue con la otra
-        return pd.DataFrame(resultados)
+                    # Media Móvil 200 (Solo si hay suficiente historia)
+                    # Para optimizar, no descargamos 2 años aquí, usamos el promedio de info si existe
+                    info = tk_obj.info
+                    sma_200 = info.get('twoHundredDayAverage', precio_actual)
+                    tendencia = "📈 BULL" if precio_actual > sma_200 else "📉 BEAR"
+                    
+                    per = info.get('trailingPE', 0)
+                    pb = info.get('priceToBook', 0)
+                    mkt_cap = info.get('marketCap', 0) / 1e9 
 
-    # Ejecutar descarga
-    df_acciones = obtener_datos_seguros(list(tickers_dict.keys()))
+                    data_resumen.append({
+                        'Activo': tickers_dict[t], 
+                        'Ticker': t.replace(".BA", ""), 
+                        'Precio': round(float(precio_actual), 2),
+                        'Var %': round(float(var_diaria), 2), 
+                        'PER': round(per, 2) if per and per > 0 else "N/A",
+                        'P/B': round(pb, 2) if pb and pb > 0 else "N/A", 
+                        'Tendencia': tendencia,
+                        'Mkt Cap (Bn)': f"{mkt_cap:.2f}"
+                    })
+            except:
+                continue
+        return pd.DataFrame(data_resumen)
+
+    # 2. EJECUCIÓN
+    df_acciones = obtener_datos_completos(list(tickers_dict.keys()))
 
     if not df_acciones.empty:
-        # Buscador opcional
-        busqueda = st.text_input("🔍 Filtrar por nombre o ticker...")
+        # Buscador
+        busqueda = st.text_input("🔍 Buscar activo por nombre o ticker...")
+        df_filtrada = df_acciones.copy()
         if busqueda:
-            df_acciones = df_acciones[df_acciones['Empresa'].str.contains(busqueda, case=False) | 
+            df_filtrada = df_acciones[df_acciones['Activo'].str.contains(busqueda, case=False) | 
                                       df_acciones['Ticker'].str.contains(busqueda, case=False)]
 
-        # Mostrar tabla
+        # --- TABLA ESTILIZADA ---
         st.dataframe(
-            df_acciones.style.format({'Precio': '${:,.2f}', 'Var %': '{:,.2f}%'})
-            .applymap(lambda x: 'color: #27ae60' if x > 0 else 'color: #e74c3c', subset=['Var %']),
-            use_container_width=True,
-            hide_index=True
-        )
-    else:
-        st.error("⚠️ Yahoo Finance bloqueó la conexión temporalmente. Por favor, refrescá la página (F5) en 1 minuto.")
+            df_filtrada.style.format({
+                'Precio': '${:,.2f}', 
+                'Var %': '{:,.2f}%'
+            }).applymap(
+                lambda x: 'color: #27ae60; font-weight:
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Inflación 2025-2026")
@@ -541,6 +559,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
