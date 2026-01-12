@@ -42,76 +42,50 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026",
 
 with tab1:
     st.subheader("🏛️ Consola de Valuación Gorostiaga")
+    st.info("Ingresá los datos manualmente en la tabla. El sistema calculará automáticamente el PER, P/B y la Valuación.")
 
-    # 1. CARGA DE DATOS DE BALANCES
-    st.markdown("### 📥 1. Cargar Datos de Balances")
-    st.info("Editá los valores de Ganancia y Libros según el último balance. Luego presioná el botón de abajo.")
-    
-    # Datos iniciales de ejemplo
-    if 'datos_base' not in st.session_state:
-        st.session_state.datos_base = [
-            {"Ticker": "ALUA.BA", "Ganancia_Accion": 142.1, "Libros_Accion": 980.5},
-            {"Ticker": "GGAL.BA", "Ganancia_Accion": 310.4, "Libros_Accion": 1350.2},
-            {"Ticker": "YPFD.BA", "Ganancia_Accion": 420.0, "Libros_Accion": 42000.0},
-            {"Ticker": "PAMP.BA", "Ganancia_Accion": 210.3, "Libros_Accion": 1680.0},
-            {"Ticker": "AAPL", "Ganancia_Accion": 6.57, "Libros_Accion": 4.83}
+    # 1. DEFINICIÓN DE DATOS INICIALES
+    if 'df_quant' not in st.session_state:
+        # Creamos un DataFrame inicial con ejemplos
+        datos = [
+            {"Ticker": "ALUA", "Precio_Arg": 950.0, "Ganancia_Accion": 142.1, "Libros_Accion": 980.5},
+            {"Ticker": "GGAL", "Precio_Arg": 5600.0, "Ganancia_Accion": 310.4, "Libros_Accion": 1350.2},
+            {"Ticker": "YPFD", "Precio_Arg": 28000.0, "Ganancia_Accion": 420.0, "Libros_Accion": 42000.0},
+            {"Ticker": "PAMP", "Precio_Arg": 3100.0, "Ganancia_Accion": 210.3, "Libros_Accion": 1680.0},
+            {"Ticker": "AAPL", "Precio_Arg": 185.0, "Ganancia_Accion": 6.57, "Libros_Accion": 4.83}
         ]
+        st.session_state.df_quant = pd.DataFrame(datos)
 
-    # Editor de datos
-    df_editor = st.data_editor(st.session_state.datos_base, num_rows="dynamic", key="editor_balances")
+    # 2. EDITOR DE DATOS (Aquí sucede la magia)
+    # El usuario edita Precio, Ganancia o Libros y el resto se calcula
+    df_editado = st.data_editor(
+        st.session_state.df_quant, 
+        num_rows="dynamic", 
+        key="editor_manual",
+        use_container_width=True
+    )
 
-    # 2. BOTÓN DE PROCESAMIENTO
-    if st.button('🔄 Sincronizar y Calcular Valuación'):
-        with st.spinner('Obteniendo precios y calculando ratios...'):
-            resultados = []
-            for fila in df_editor:
-                t = fila.get('Ticker')
-                eps = fila.get('Ganancia_Accion')
-                bv = fila.get('Libros_Accion')
-                
-                if t and eps and bv:
-                    try:
-                        tk = yf.Ticker(t, session=session)
-                        h = tk.history(period="1d")
-                        if h.empty: continue
-                        precio = float(h['Close'].iloc[-1])
-                        
-                        # Cálculos
-                        per = precio / eps
-                        pb = precio / bv
-                        
-                        # Lógica de Valuación
-                        if pb < 1.0:
-                            status = "🟢 BARATO"
-                        elif 1.0 <= pb <= 2.2:
-                            status = "🟡 NEUTRO"
-                        else:
-                            status = "🔴 CARO"
-
-                        resultados.append({
-                            "Ticker": t.replace(".BA", ""),
-                            "Precio": precio,
-                            "PER": round(per, 1),
-                            "P/B": round(pb, 2),
-                            "Valuacion": status
-                        })
-                    except Exception as e:
-                        continue
-            
-            if resultados:
-                st.session_state.df_final = pd.DataFrame(resultados)
-            else:
-                st.error("No se pudieron obtener precios. Verificá los Tickers.")
-
-    # 3. TABLA DE RESULTADOS
-    st.markdown("---")
-    if 'df_final' in st.session_state:
-        st.markdown("### 📊 2. Análisis de Valor Resultante")
+    # 3. LÓGICA DE CÁLCULO AUTOMÁTICO
+    if not df_editado.empty:
+        # Realizamos los cálculos matemáticos sobre las columnas manuales
+        df_editado['PER'] = df_editado['Precio_Arg'] / df_editado['Ganancia_Accion']
+        df_editado['P/B'] = df_editado['Precio_Arg'] / df_editado['Libros_Accion']
         
-        # Formateo de la tabla para que sea profesional
+        # Función para determinar la valuación
+        def categorizar(pb):
+            if pb < 1.0: return "🟢 BARATO"
+            elif 1.0 <= pb <= 2.2: return "🟡 NEUTRO"
+            else: return "🔴 CARO"
+        
+        df_editado['Valuacion'] = df_editado['P/B'].apply(categorizar)
+
+        st.markdown("---")
+        st.subheader("📊 Resultado del Análisis de Valor")
+        
+        # 4. MOSTRAR TABLA DE RESULTADOS FINAL
         st.dataframe(
-            st.session_state.df_final.style.format({
-                'Precio': '${:,.2f}',
+            df_editado.style.format({
+                'Precio_Arg': '${:,.2f}',
                 'PER': '{:.1f}x',
                 'P/B': '{:.2f}x'
             }).map(
@@ -120,16 +94,25 @@ with tab1:
             ),
             use_container_width=True, hide_index=True
         )
-    else:
-        st.warning("Cargá los datos arriba y presioná el botón para generar la valuación.")
 
-    # 4. TRADINGVIEW (Gauge)
+    # 5. GLOSARIO RÁPIDO
+    
+    st.info("""
+    **Guía de Interpretación:**
+    * **PER:** Cuántos años de ganancias pagás hoy. (Bajo = Atractivo).
+    * **P/B:** Precio vs Activos Físicos. **Menor a 1.0** es la zona de oportunidad máxima (compras valor por debajo de su costo).
+    """)
+
+    # 6. GRÁFICO TÉCNICO (Opcional, para referencia visual)
     st.markdown("---")
-    st.subheader("🎯 3. Sentimiento Técnico")
-    lista_opciones = [f.get('Ticker') for f in df_editor if f.get('Ticker')]
-    if lista_opciones:
-        sel = st.selectbox("Ver análisis técnico de:", lista_opciones)
-        tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
+    sel_acc = st.selectbox("Ver gráfico de referencia (TradingView):", df_editado['Ticker'].tolist())
+    
+    # Ajuste de Ticker para Argentina o USA en TradingView
+    # Si el precio cargado es grande (en pesos), asumimos BCBA
+    if not df_editado.empty:
+        fila_sel = df_editado[df_editado['Ticker'] == sel_acc].iloc[0]
+        prefijo = "BCBA:" if fila_sel['Precio_Arg'] > 500 else ""
+        tv_s = f"{prefijo}{sel_acc}"
         
         tv_html = f"""
         <div style="height:350px;">
@@ -591,6 +574,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
