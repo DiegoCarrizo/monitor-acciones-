@@ -524,12 +524,7 @@ with tab5:
 
     @st.cache_data(ttl=600) # Se actualiza cada 10 minutos
     def obtener_datos_mercado_real():
-        # 1. RIESGO PAÍS (EMBI+ JPMorgan)
-        # Extraemos el ticker ^EMBI de referencia o un proxy de bonos soberanos
-        rp_data = yf.download("1100.BA", period="1d") # Proxy de bono soberano si no hay API directa
-        riesgo_pais_valor = 1085 # Valor actual de referencia EMBI JPMorgan
-        
-        # 2. DÓLARES BYMA (Cálculo vía Bonos AL30/GD30)
+        # 1. DÓLARES BYMA (Cálculo vía Bonos AL30/GD30)
         # MEP = Precio AL30 (Pesos) / Precio AL30D (Dólares)
         al30_ar = yf.download("AL30.BA", period="1d")['Close'].iloc[-1]
         al30_us = yf.download("AL30D.BA", period="1d")['Close'].iloc[-1]
@@ -581,6 +576,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
