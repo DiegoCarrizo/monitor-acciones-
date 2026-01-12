@@ -188,83 +188,70 @@ import numpy as np
 
 # --- PESTAÑA 3: ESTRUCTURA DE TASAS ---
 with tab3:
-    st.subheader("🏦 Curva de Rendimientos (Promedio) vs. Inflación")
+    st.subheader("🏦 Curva de Rendimientos Promedio vs. Inflación")
 
-    # 1. OBTENER INFLACIÓN DESDE TU TABLA EXISTENTE
-    # Asumiendo que tenés una variable o DataFrame llamado 'df_inflacion'
-    # Si no, usamos el valor de tu tabla:
-    inflacion_referencia = 3.0  # <--- Cambia esto por: df_inflacion['Valor'].iloc[0] si ya la tenés
+    # 1. CAPITAL DE REFERENCIA Y PARÁMETROS
+    capital_inv = 1000000  # Capital de ejemplo
+    inflacion_referencia = 3.0 # Viene de tu tabla de inflación
     
-    @st.cache_data(ttl=3600)
-    def procesar_curva_promedio():
-        datos = {
-            'Ticker': ["S17E6", "M16E6", "M13F6", "M27F6", "T31F6", "S31M6", "M30A6", "S30A6", "S29Y6", "S30J6", "M31G6", "S31G6", "S29A6", "S30O6", "S30N6", "TO26", "S16E6"],
-            'Plazo_Meses': [0.5, 0.5, 1.0, 1.5, 1.5, 3.0, 4.0, 4.0, 5.0, 6.0, 7.0, 7.0, 8.0, 10.0, 11.0, 10.0, 0.2],
-            'TEM': [2.7, 2.8, 2.9, 3.0, 2.9, 3.1, 3.1, 3.1, 3.2, 3.2, 3.3, 3.2, 3.4, 3.4, 3.5, 3.8, 2.6]
-        }
-        df = pd.DataFrame(datos)
-        
-        # CALCULAMOS EL PROMEDIO POR PLAZO
-        # Esto hace que si hay dos bonos a 4 meses, la línea pase por el medio
-        df_promedio = df.groupby('Plazo_Meses')['TEM'].mean().reset_index()
-        return df, df_promedio
+    # 2. PROCESAMIENTO DE DATOS
+    datos = {
+        'Ticker': ["S17E6", "M16E6", "M13F6", "M27F6", "T31F6", "S31M6", "M30A6", "S30A6", "S29Y6", "S30J6", "M31G6", "S31G6", "S29A6", "S30O6", "S30N6", "TO26", "S16E6"],
+        'Plazo_Meses': [0.5, 0.5, 1.0, 1.5, 1.5, 3.0, 4.0, 4.0, 5.0, 6.0, 7.0, 7.0, 8.0, 10.0, 11.0, 10.0, 0.2],
+        'TEM': [2.7, 2.8, 2.9, 3.0, 2.9, 3.1, 3.1, 3.1, 3.2, 3.2, 3.3, 3.2, 3.4, 3.4, 3.5, 3.8, 2.6]
+    }
+    df = pd.DataFrame(datos)
+    
+    # Cálculos
+    df_linea = df.groupby('Plazo_Meses')['TEM'].mean().reset_index()
+    df['Tasa Real'] = df['TEM'] - inflacion_referencia
+    
+    # Cálculo de Ganancia Extra sobre 1M vs Inflación
+    # (Capital * Tasa Real / 100)
+    df['Ganancia Extra ($)'] = (capital_inv * (df['Tasa Real'] / 100))
 
-    df_original, df_linea = procesar_curva_promedio()
-
-    # 2. GRÁFICO CON LÍNEA DE PROMEDIO
+    # 3. GRÁFICO PROFESIONAL CON SPLINE
+    
     fig_curva = go.Figure()
 
-    # Puntos individuales (Dispersión)
+    # Puntos (Bonos)
     fig_curva.add_trace(go.Scatter(
-        x=df_original['Plazo_Meses'], y=df_original['TEM'],
-        mode='markers',
-        name='Instrumentos',
-        marker=dict(color='#3498db', size=8),
-        text=df_original['Ticker'],
-        hovertemplate="<b>%{text}</b><br>Tasa: %{y}%<extra></extra>"
+        x=df['Plazo_Meses'], y=df['TEM'], mode='markers',
+        name='Bonos/Lecaps', marker=dict(color='#3498db', size=10, symbol='diamond'),
+        text=df['Ticker'], hovertemplate="<b>%{text}</b><br>TEM: %{y}%<extra></extra>"
     ))
 
-    # Línea de Tendencia (Promedio)
+    # Curva Promedio (Línea Amarilla)
     fig_curva.add_trace(go.Scatter(
         x=df_linea['Plazo_Meses'], y=df_linea['TEM'],
-        mode='lines',
-        name='Curva Promedio',
-        line=dict(color='#f1c40f', width=4, shape='spline'), # Spline la hace curva suave
+        mode='lines', name='Curva Promedio',
+        line=dict(color='#f1c40f', width=4, shape='spline')
     ))
 
-    # Línea de Inflación Esperada (Desde tu tabla)
-    fig_curva.add_hline(
-        y=inflacion_referencia, 
-        line_dash="dash", 
-        line_color="#e74c3c",
-        annotation_text=f"Inflación Proyectada ({inflacion_referencia}%)",
-        annotation_position="top left"
-    )
+    # Línea Inflación (Roja)
+    fig_curva.add_hline(y=inflacion_referencia, line_dash="dash", line_color="#e74c3c",
+                        annotation_text=f"Inflación Ref: {inflacion_referencia}%", annotation_position="top left")
 
-    fig_curva.update_layout(
-        template="plotly_dark",
-        xaxis_title="Meses al Vencimiento",
-        yaxis_title="TEM %",
-        height=500,
-        hovermode="closest"
-    )
-
+    fig_curva.update_layout(template="plotly_dark", height=450, xaxis_title="Plazo (Meses)", yaxis_title="TEM %")
     st.plotly_chart(fig_curva, use_container_width=True)
 
-    # 3. TABLA DE DATOS (SIN MATPLOTLIB)
-    st.markdown("### 📋 Comparativa de Tasas Reales")
+    # 4. TABLA CON SEMÁFORO Y GANANCIA NOMINAL
+    st.markdown(f"### 📋 Análisis de Tasa Real (Sobre Inversión de ${capital_inv:,.0f})")
     
-    # Calculamos el Spread real vs Inflación
-    df_original['Spread vs Infla'] = df_original['TEM'] - inflacion_referencia
+    def estilo_tasa_real(val):
+        color = '#2ecc71' if val > 0 else '#e74c3c'
+        return f'color: {color}; font-weight: bold'
+
+    # Ordenamos y mostramos
+    df_final = df.sort_values('Plazo_Meses')
     
     st.dataframe(
-        df_original.sort_values('Plazo_Meses'),
-        column_config={
-            "Ticker": "Ticker",
-            "Plazo_Meses": st.column_config.NumberColumn("Meses", format="%.1f"),
-            "TEM": st.column_config.NumberColumn("TEM", format="%.2f%%"),
-            "Spread vs Infla": st.column_config.NumberColumn("Tasa Real", format="%.2f%%")
-        },
+        df_final.style.applymap(estilo_tasa_real, subset=['Tasa Real', 'Ganancia Extra ($)'])
+        .format({
+            'TEM': '{:.2f}%', 
+            'Tasa Real': '{:.2f}%', 
+            'Ganancia Extra ($)': '$ {:,.0f}'
+        }),
         use_container_width=True,
         hide_index=True
     )
@@ -480,6 +467,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
