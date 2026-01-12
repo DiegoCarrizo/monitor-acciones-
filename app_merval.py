@@ -43,7 +43,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026",
 with tab1:
     st.subheader("🏛️ Terminal de Valuación Quant")
 
-    # 1. DATOS DE BALANCES (EPS y Valor Libros)
+    # 1. DICCIONARIO DE BALANCES (EPS y Valor Libros por acción)
     balances_fijos = {
         'ALUA.BA': {'EPS': 142.10, 'BV': 980.50},
         'GGAL.BA': {'EPS': 310.40, 'BV': 1350.20},
@@ -56,12 +56,13 @@ with tab1:
         'NVDA': {'EPS': 1.80, 'BV': 2.32}
     }
 
-    if 'df_val' not in st.session_state:
-        st.session_state.df_val = None
+    # Inicializar el estado de la sesión
+    if 'df_valuacion' not in st.session_state:
+        st.session_state.df_valuacion = None
 
-    # BOTÓN DE ACTUALIZACIÓN
-    if st.button('🔄 Sincronizar y Calcular Ratios'):
-        with st.spinner('Descargando precios...'):
+    # BOTÓN DE ACTUALIZACIÓN (Único activador de datos)
+    if st.button('🔄 Actualizar y Recalcular Datos'):
+        with st.spinner('Obteniendo precios y calculando ratios...'):
             resultados = []
             for t, b in balances_fijos.items():
                 try:
@@ -70,67 +71,64 @@ with tab1:
                     if h.empty: continue
                     precio = float(h['Close'].iloc[-1])
                     
-                    # Cálculos directos
-                    per_v = precio / b['EPS']
-                    pb_v = precio / b['BV']
+                    # CÁLCULOS MATEMÁTICOS DIRECTOS
+                    per = precio / b['EPS']
+                    pb = precio / b['BV']
                     
-                    # Estado simplificado
-                    status_v = "BARATO" if pb_v < 1.0 else "NEUTRO"
-                    if ".BA" not in t: status_v = "USA"
-
+                    # Determinación de estado (Sin tildes para evitar KeyError)
+                    estado = "BARATO" if pb < 1.0 else "NEUTRO"
+                    if ".BA" not in t: estado = "USA MKT"
+                    
                     resultados.append({
                         "Ticker": t.replace(".BA", ""),
                         "Precio": precio,
-                        "PER": per_v,
-                        "PB": pb_v,
-                        "Status": status_v
+                        "PER": per,
+                        "PB": pb,
+                        "Status": estado
                     })
                 except:
                     continue
             
             if resultados:
-                st.session_state.df_val = pd.DataFrame(resultados)
-                st.success("Mercado Sincronizado")
+                st.session_state.df_valuacion = pd.DataFrame(resultados)
+                st.success("¡Datos actualizados!")
 
-    # 3. MOSTRAR TABLA CON PROTECCIÓN CONTRA KEYERROR
-    if st.session_state.df_val is not None:
-        df_final = st.session_state.df_val.copy()
+    # 3. MOSTRAR TABLA (Si hay datos)
+    if st.session_state.df_valuacion is not None:
+        # Aplicamos formato simple para evitar errores de Styles de Pandas
+        df_mostrar = st.session_state.df_valuacion.copy()
         
-        try:
-            # Intentamos aplicar estilos, si falla, muestra dataframe normal
-            st.dataframe(
-                df_final.style.format({
-                    'Precio': '${:,.2f}',
-                    'PER': '{:.1f}x',
-                    'PB': '{:.2f}x'
-                }).map(
-                    lambda x: 'color: #adff2f; font-weight: bold' if x == "BARATO" else '',
-                    subset=['Status']
-                ),
-                use_container_width=True, hide_index=True
-            )
-        except Exception as e:
-            # Fallback en caso de que Pandas falle con el estilo
-            st.dataframe(df_final, use_container_width=True, hide_index=True)
-            st.caption("Nota: Los datos se muestran sin formato de color debido a una incompatibilidad de versión.")
+        st.dataframe(
+            df_mostrar.style.format({
+                'Precio': '${:,.2f}',
+                'PER': '{:.1f}x',
+                'PB': '{:.2f}x'
+            }).map(
+                lambda x: 'color: #adff2f; font-weight: bold' if x == "BARATO" else '',
+                subset=['Status']
+            ),
+            use_container_width=True, 
+            hide_index=True
+        )
     else:
-        st.info("Haga clic en el botón para cargar los datos fundamentales.")
+        st.info("Pulse el botón para cargar los precios y calcular los ratios PER y P/B.")
 
     st.markdown("---")
 
-    # 4. EXPLICACIÓN DE RATIOS (SOPORTE VISUAL)
-    [Image of Graham and Dodd valuation principle]
+    # 4. EXPLICACIÓN DE VALOR (Escuela Austríaca)
+    
     st.markdown("""
-    **Guía de Inversión Gorostiaga:**
-    - **PB < 1.0:** Compras activos por debajo de su valor contable.
-    - **PER Bajo:** El mercado está pagando poco por la generación de caja de la empresa.
+    **Interpretación de Ratios:**
+    * **PER (Price to Earnings):** Indica cuántos años de utilidades pagas por la acción.
+    * **P/B (Price to Book):** Si es < 1, la empresa cotiza por debajo de su valor contable (descuento sobre activos).
     """)
 
     # 5. TRADINGVIEW GAUGE
     st.subheader("🎯 Sentimiento Técnico")
-    sel_acc = st.selectbox("Seleccione activo:", list(balances_fijos.keys()))
+    sel_acc = st.selectbox("Seleccione activo para el análisis técnico:", list(balances_fijos.keys()))
     tv_symbol = f"BCBA:{sel_acc.replace('.BA','')}" if ".BA" in sel_acc else sel_acc
     
+    # Widget corregido con doble llave para evitar SyntaxError
     tv_gauge_html = f"""
     <div style="height:380px;">
         <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
@@ -598,6 +596,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
