@@ -148,7 +148,8 @@ with tab1:
     with col_g2:
         st.info(f"📊 **Análisis para {sel}**")
         st.write("La métrica **P/B (Price to Book)** indica cuántas veces pagás el valor contable de la empresa.")
-        st.write("En la visión austríaca, comprar por debajo de **P/B 1.0** es adquirir activos con descuento sobre su costo de reposición.")
+        st.write("Comprar por debajo de **P/B 1.0** es adquirir activos con descuento sobre su costo de reposición.")
+        
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Inflación 2025-2026")
@@ -597,6 +598,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
