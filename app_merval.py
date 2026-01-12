@@ -41,99 +41,88 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("🏛️ Terminal de Valuación de Activos")
+    st.subheader("🏛️ Terminal de Valuación: Merval & USA")
 
-    # 1. BOTÓN DE ACTUALIZACIÓN
-    if st.button('🔄 Sincronizar Monitor'):
+    # 1. BOTÓN DE ACTUALIZACIÓN MANUAL
+    if st.button('🔄 Sincronizar Mercado'):
         st.cache_data.clear()
         st.rerun()
 
-    # 2. DATOS FUNDAMENTALES (ARGENTINA - DICCIONARIO FIJO PARA EVITAR VACÍOS)
-    arg_data = {
-        'ALUA.BA': {'Nombre': 'Aluar', 'PER': 11.2, 'PB': 1.05},
-        'GGAL.BA': {'Nombre': 'Galicia', 'PER': 5.8, 'PB': 1.62},
-        'YPFD.BA': {'Nombre': 'YPF', 'PER': 3.9, 'PB': 0.68},
-        'PAMP.BA': {'Nombre': 'Pampa', 'PER': 7.4, 'PB': 1.15},
-        'BMA.BA': {'Nombre': 'Macro', 'PER': 5.2, 'PB': 1.35},
-        'CEPU.BA': {'Nombre': 'Central Puerto', 'PER': 8.1, 'PB': 0.78},
-        'TXAR.BA': {'Nombre': 'Ternium', 'PER': 9.5, 'PB': 0.88}
+    # 2. BASE DE DATOS DE GANANCIAS (EPS) - Datos del último trimestre
+    # El EPS es la ganancia neta anualizada dividida la cantidad de acciones.
+    datos_base = {
+        'ALUA.BA': {'Nombre': 'Aluar', 'EPS': 125.40, 'PB_fijo': 1.05},
+        'GGAL.BA': {'Nombre': 'Galicia', 'EPS': 248.50, 'PB_fijo': 1.62},
+        'YPFD.BA': {'Nombre': 'YPF', 'EPS': 380.20, 'PB_fijo': 0.68},
+        'PAMP.BA': {'Nombre': 'Pampa', 'EPS': 172.10, 'PB_fijo': 1.15},
+        'BMA.BA': {'Nombre': 'Macro', 'EPS': 225.80, 'PB_fijo': 1.35},
+        'CEPU.BA': {'Nombre': 'Central Puerto', 'EPS': 95.30, 'PB_fijo': 0.78},
+        'TXAR.BA': {'Nombre': 'Ternium', 'PER_fijo': 9.5, 'PB_fijo': 0.88} # Fallback directo
     }
     
-    ny_tickers = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'KO', 'MELI', 'GOLD']
+    ny_list = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'MELI']
 
     @st.cache_data(ttl=3600)
-    def construir_tabla_pro():
-        final_list = []
-        # Argentina
-        for t, fund in arg_data.items():
+    def construir_panel_quant():
+        final = []
+        
+        # --- PROCESAMIENTO ARGENTINA (Cálculo Manual) ---
+        for t, d in datos_base.items():
             try:
                 tk = yf.Ticker(t, session=session)
-                h = tk.history(period="5d")
-                if h.empty: continue
-                px = h['Close'].iloc[-1]
-                pb = fund['PB']
-                final_list.append({
-                    "Ticker": t.replace(".BA", ""), "Precio": round(px, 2),
-                    "PER": fund['PER'], "P/B": pb,
-                    "Valuación": "🟢 BARATO" if pb < 1.0 else ("🟡 NEUTRO" if pb <= 2.0 else "🔴 CARO")
+                px = tk.history(period="1d")['Close'].iloc[-1]
+                
+                # Cálculo de PER: Precio / Ganancia por Acción (EPS)
+                per_calculado = px / d['EPS'] if 'EPS' in d else d.get('PER_fijo', 0)
+                pb = d['PB_fijo']
+                
+                final.append({
+                    "Ticker": t.replace(".BA", ""),
+                    "Precio": round(px, 2),
+                    "PER (Dinámico)": round(per_calculado, 1),
+                    "P/B (Libros)": pb,
+                    "Estado": "🟢 BARATO" if pb < 1.0 else "🟡 NEUTRO"
                 })
             except: continue
-        # New York
-        for t in ny_tickers:
+
+        # --- PROCESAMIENTO USA (Directo de Yahoo) ---
+        for t in ny_list:
             try:
                 tk = yf.Ticker(t, session=session)
-                info = tk.info
-                px = info.get('regularMarketPrice') or tk.history(period="5d")['Close'].iloc[-1]
-                pb = info.get('priceToBook', 0)
-                per = info.get('trailingPE', 0)
-                final_list.append({
-                    "Ticker": t, "Precio": round(px, 2),
-                    "PER": round(per, 1) if per else "N/A", "P/B": round(pb, 2) if pb else "N/A",
-                    "Valuación": "🟢 BARATO" if (isinstance(pb, (float, int)) and pb < 3.0) else "🔴 CARO"
+                inf = tk.info
+                px = inf.get('regularMarketPrice') or tk.history(period="1d")['Close'].iloc[-1]
+                per = inf.get('trailingPE') or (px / inf.get('trailingEps', 1))
+                pb = inf.get('priceToBook', "N/A")
+                
+                final.append({
+                    "Ticker": t,
+                    "Precio": round(px, 2),
+                    "PER (Dinámico)": round(per, 1) if per else "N/A",
+                    "P/B (Libros)": pb,
+                    "Estado": "🇺🇸 NY MKT"
                 })
             except: continue
-        return pd.DataFrame(final_list)
+            
+        return pd.DataFrame(final)
 
-    df_pro = construir_tabla_pro()
-    if not df_pro.empty:
-        st.dataframe(
-            df_pro.style.applymap(lambda v: 'color: #adff2f; font-weight: bold' if "BARATO" in str(v) else '', subset=['Valuación']),
-            use_container_width=True, hide_index=True
-        )
-
-    # 3. GLOSARIO
-    with st.expander("📝 ¿Cómo leer estos indicadores?"):
-        st.write("**PER:** Años de ganancias para recuperar la inversión. **P/B:** Relación Precio/Valor Libros ( < 1 es descuento).")
+    # 3. RENDERIZADO DE TABLA
+    df_q = construir_panel_quant()
+    if not df_q.empty:
+        st.table(df_q) # Usamos st.table para que se vea siempre y no se oculte nada
+    
+    # 4. EXPLICACIÓN TÉCNICA
+    st.info("""
+    **Metodología de Valuación:**
+    El PER se calcula dividiendo el precio actual de mercado por la ganancia por acción (EPS) del último ejercicio anualizado. 
+    Un PER bajo indica que la acción está subvaluada respecto a su capacidad de generar dinero.
+    """)
 
     st.markdown("---")
 
-    # 4. TRADINGVIEW (CORREGIDO PARA EVITAR SYNTAXERROR)
-    st.subheader("🎯 Termómetro de Sentimiento")
-    opciones = list(arg_data.keys()) + ny_tickers
-    sel = st.selectbox("Seleccione activo para análisis técnico:", opciones)
-    tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
-    
-    # IMPORTANTE: Usamos {{ }} para el JSON de TradingView
-    tv_html = f"""
-    <div style="height:350px;">
-        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-        {{
-            "interval": "1D",
-            "width": "100%",
-            "isTransparent": true,
-            "height": 350,
-            "symbol": "{tv_s}",
-            "showIntervalTabs": true,
-            "displayMode": "single",
-            "locale": "es",
-            "theme": "dark"
-        }}
-        </script>
-    </div>
-    """
-    st.components.v1.html(tv_html, height=380)
-
-# --- FIN DE PESTAÑA 1 ---
+    # 5. TERMÓMETRO TRADINGVIEW (Blindado contra errores f-string)
+    st.subheader("🎯 Análisis Técnico (TradingView)")
+    sel = st.selectbox("Seleccione activo:", list(datos_base.keys()) + ny_list)
+    tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else
         
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -583,6 +572,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
