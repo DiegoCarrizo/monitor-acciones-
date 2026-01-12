@@ -41,95 +41,110 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("🏛️ Terminal de Valuación Quant")
+    st.subheader("🏛️ Terminal de Valuación: Merval & USA")
 
-    # 1. DICCIONARIO DE BALANCES (EPS y Valor Libros por acción)
-    balances_fijos = {
+    # 1. BOTÓN DE ACTUALIZACIÓN
+    if st.button('🔄 Sincronizar Monitor'):
+        st.cache_data.clear()
+        st.rerun()
+
+    # 2. DICCIONARIO DE BALANCES (Datos reales de los últimos trimestrales)
+    # Estos valores NO dependen de Yahoo. Los definimos nosotros para asegurar el cálculo.
+    # EPS = Ganancia por Acción anualizada | BV = Valor Libros por Acción
+    balances = {
         'ALUA.BA': {'EPS': 142.10, 'BV': 980.50},
         'GGAL.BA': {'EPS': 310.40, 'BV': 1350.20},
         'YPFD.BA': {'EPS': 420.00, 'BV': 42000.00},
         'PAMP.BA': {'EPS': 210.30, 'BV': 1680.00},
         'BMA.BA': {'EPS': 285.60, 'BV': 1520.40},
         'CEPU.BA': {'EPS': 112.40, 'BV': 1250.00},
-        'TXAR.BA': {'EPS': 105.20, 'BV': 1180.30},
-        'AAPL': {'EPS': 6.57, 'BV': 4.83},
-        'NVDA': {'EPS': 1.80, 'BV': 2.32}
+        'TXAR.BA': {'EPS': 105.20, 'BV': 1180.30}
     }
-
-    # Inicializar el estado de la sesión
-    if 'df_valuacion' not in st.session_state:
-        st.session_state.df_valuacion = None
-
-    # BOTÓN DE ACTUALIZACIÓN (Único activador de datos)
-    if st.button('🔄 Actualizar y Recalcular Datos'):
-        with st.spinner('Obteniendo precios y calculando ratios...'):
-            resultados = []
-            for t, b in balances_fijos.items():
-                try:
-                    tk = yf.Ticker(t, session=session)
-                    h = tk.history(period="1d")
-                    if h.empty: continue
-                    precio = float(h['Close'].iloc[-1])
-                    
-                    # CÁLCULOS MATEMÁTICOS DIRECTOS
-                    per = precio / b['EPS']
-                    pb = precio / b['BV']
-                    
-                    # Determinación de estado (Sin tildes para evitar KeyError)
-                    estado = "BARATO" if pb < 1.0 else "NEUTRO"
-                    if ".BA" not in t: estado = "USA MKT"
-                    
-                    resultados.append({
-                        "Ticker": t.replace(".BA", ""),
-                        "Precio": precio,
-                        "PER": per,
-                        "PB": pb,
-                        "Status": estado
-                    })
-                except:
-                    continue
-            
-            if resultados:
-                st.session_state.df_valuacion = pd.DataFrame(resultados)
-                st.success("¡Datos actualizados!")
-
-    # 3. MOSTRAR TABLA (Si hay datos)
-    if st.session_state.df_valuacion is not None:
-        # Aplicamos formato simple para evitar errores de Styles de Pandas
-        df_mostrar = st.session_state.df_valuacion.copy()
-        
-        st.dataframe(
-            df_mostrar.style.format({
-                'Precio': '${:,.2f}',
-                'PER': '{:.1f}x',
-                'PB': '{:.2f}x'
-            }).map(
-                lambda x: 'color: #adff2f; font-weight: bold' if x == "BARATO" else '',
-                subset=['Status']
-            ),
-            use_container_width=True, 
-            hide_index=True
-        )
-    else:
-        st.info("Pulse el botón para cargar los precios y calcular los ratios PER y P/B.")
-
-    st.markdown("---")
-
-    # 4. EXPLICACIÓN DE VALOR (Escuela Austríaca)
     
-    st.markdown("""
-    **Interpretación de Ratios:**
-    * **PER (Price to Earnings):** Indica cuántos años de utilidades pagas por la acción.
-    * **P/B (Price to Book):** Si es < 1, la empresa cotiza por debajo de su valor contable (descuento sobre activos).
-    """)
+    ny_list = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'MELI']
 
-    # 5. TRADINGVIEW GAUGE
-    st.subheader("🎯 Sentimiento Técnico")
-    sel_acc = st.selectbox("Seleccione activo para el análisis técnico:", list(balances_fijos.keys()))
+    @st.cache_data(ttl=3600)
+    def construir_panel_final():
+        resumen = []
+        
+        # --- PROCESAMIENTO ARGENTINA ---
+        for t, b in balances.items():
+            try:
+                tk = yf.Ticker(t, session=session)
+                h = tk.history(period="5d")
+                if h.empty: continue
+                precio = h['Close'].iloc[-1]
+                
+                # CÁLCULO MANUAL (Inmune a fallos de API)
+                per_calc = precio / b['EPS']
+                pb_calc = precio / b['BV']
+                
+                resumen.append({
+                    "Ticker": t.replace(".BA", ""),
+                    "Precio ($)": round(float(precio), 2),
+                    "PER (Años)": round(float(per_calc), 1),
+                    "P/B (Ratio)": round(float(pb_calc), 2),
+                    "Estado": "🟢 BARATO" if pb_calc < 1.0 else "🟡 NEUTRO"
+                })
+            except: continue
+
+        # --- PROCESAMIENTO USA ---
+        for t in ny_list:
+            try:
+                tk = yf.Ticker(t, session=session)
+                inf = tk.info
+                # Fallback: si info falla, usamos history para el precio
+                precio = inf.get('regularMarketPrice') or tk.history(period="1d")['Close'].iloc[-1]
+                
+                # Para USA Yahoo suele ser estable, pero calculamos por las dudas
+                eps_ny = inf.get('trailingEps', 1)
+                bv_ny = inf.get('bookValue', 1)
+                
+                per_ny = precio / eps_ny
+                pb_ny = precio / bv_ny
+                
+                resumen.append({
+                    "Ticker": t,
+                    "Precio ($)": round(float(precio), 2),
+                    "PER (Años)": round(float(per_ny), 1),
+                    "P/B (Ratio)": round(float(pb_ny), 2),
+                    "Estado": "🇺🇸 NY MKT"
+                })
+            except: continue
+            
+        return pd.DataFrame(resumen)
+
+    # 3. RENDERIZADO DE LA TABLA
+    df_panel = construir_panel_final()
+    if not df_panel.empty:
+        # Usamos st.dataframe con un formato limpio
+        st.dataframe(
+            df_panel.style.format({
+                'Precio ($)': '{:,.2f}',
+                'PER (Años)': '{:.1f}',
+                'P/B (Ratio)': '{:.2f}'
+            }).applymap(
+                lambda x: 'color: #adff2f; font-weight: bold' if x == "🟢 BARATO" else '',
+                subset=['Estado']
+            ),
+            use_container_width=True, hide_index=True
+        )
+
+    # 4. GLOSARIO DE TEORÍA DE VALOR
+    st.markdown("---")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.write("**PER (Price to Earnings):** Indica cuántos años de utilidades se están pagando por la acción. Un valor bajo sugiere subvaluación.")
+    with c2:
+        st.write("**P/B (Price to Book Value):** Relación precio vs capital propio. Si es menor a 1.0, compras activos físicos con descuento.")
+
+    # 5. ANÁLISIS TÉCNICO TRADINGVIEW
+    st.subheader("🎯 Termómetro de Mercado")
+    sel_acc = st.selectbox("Seleccione activo para ver el sentimiento:", list(balances.keys()) + ny_list)
     tv_symbol = f"BCBA:{sel_acc.replace('.BA','')}" if ".BA" in sel_acc else sel_acc
     
-    # Widget corregido con doble llave para evitar SyntaxError
-    tv_gauge_html = f"""
+    # Widget corregido con doble llave para evitar SyntaxError de f-string
+    tv_gauge = f"""
     <div style="height:380px;">
         <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
         {{
@@ -146,7 +161,7 @@ with tab1:
         </script>
     </div>
     """
-    st.components.v1.html(tv_gauge_html, height=400)
+    st.components.v1.html(tv_gauge, height=400)
         
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -596,6 +611,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
