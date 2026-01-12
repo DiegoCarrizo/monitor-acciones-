@@ -461,7 +461,80 @@ with tab5:
     
     fig_embi.update_layout(template="plotly_dark", height=500, margin=dict(l=20, r=20, t=10, b=10))
     st.plotly_chart(fig_embi, use_container_width=True)
+
+# --- PESTAÑA 4: ESTRATEGIA MAYER & GLOBAL MACRO ---
+with tab4:
+    st.subheader("🌐 Monitor de Activos Globales - Múltiplo de Mayer")
+    
+    # 1. DEFINICIÓN DE TICKERS (Oro, Plata, WTI, Uranio, Litio, Soja, BTC)
+    # GC=F (Oro), SI=F (Plata), CL=F (WTI), URA (Uranio ETF), LIT (Litio ETF), ZS=F (Soja), BTC-USD (Bitcoin)
+    tickers_mayer = {
+        "Bitcoin": "BTC-USD",
+        "Oro": "GC=F",
+        "Plata": "SI=F",
+        "WTI (Petróleo)": "CL=F",
+        "Uranio (URA)": "URA",
+        "Litio (LIT)": "LIT",
+        "Soja": "ZS=F"
+    }
+
+    @st.cache_data(ttl=3600)
+    def calcular_mayer(symbol):
+        df = yf.download(symbol, period="1y", interval="1d")
+        if df.empty: return None
         
+        # Calculamos MA200
+        df['MA200'] = df['Close'].rolling(window=200).mean()
+        precio_actual = df['Close'].iloc[-1]
+        ma200_actual = df['MA200'].iloc[-1]
+        mayer_multiple = precio_actual / ma200_actual
+        
+        return round(float(precio_actual), 2), round(float(mayer_multiple), 2)
+
+    # 2. TABLA RESUMEN DE ACTIVOS
+    mayer_data = []
+    for nombre, ticker in tickers_mayer.items():
+        res = calcular_mayer(ticker)
+        if res:
+            precio, m_mult = res
+            # Clasificación según Mayer
+            estado = "🔴 Sobrecompra" if m_mult > 2.4 else "🟡 Neutro" if m_mult > 1.0 else "🟢 Oportunidad"
+            mayer_data.append({"Activo": nombre, "Precio": precio, "Mayer Multiple": m_mult, "Estado": estado})
+
+    df_mayer = pd.DataFrame(mayer_data)
+    st.dataframe(df_mayer, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+
+    # 3. SECCIÓN ESPECIAL BITCOIN & M2 GLOBAL
+    st.subheader("₿ Análisis Deep Dive: Bitcoin & Liquidez Global")
+    
+    # Selector para disparar el análisis de M2
+    if st.checkbox("Mostrar Correlación Bitcoin / M2 Global"):
+        col_m1, col_m2 = st.columns(2)
+        
+        with col_m1:
+            st.write("**Bitcoin vs Mayer Multiple**")
+            # Aquí va el gráfico de Mayer para BTC
+            btc_hist = yf.download("BTC-USD", period="2y")
+            btc_hist['MA200'] = btc_hist['Close'].rolling(window=200).mean()
+            
+            fig_btc = go.Figure()
+            fig_btc.add_trace(go.Scatter(x=btc_hist.index, y=btc_hist['Close'], name="Precio BTC"))
+            fig_btc.add_trace(go.Scatter(x=btc_hist.index, y=btc_hist['MA200'], name="MA 200", line=dict(dash='dash')))
+            fig_btc.update_layout(template="plotly_dark", height=400)
+            st.plotly_chart(fig_btc, use_container_width=True)
+
+        with col_m2:
+            st.write("**M2 Global (Proxy Liquidez)**")
+            st.info("La M2 Global actúa como el 'viento de cola' para Bitcoin. Históricamente, cuando la M2 crece, el Múltiplo de Mayer de BTC tiende a expandirse.")
+            # Nota: M2 Global real requiere APIs como FRED. Aquí usamos un placeholder visual
+            st.image("https://bitcoincounterflow.com/static/m2_global_chart_placeholder.png", caption="M2 Global Money Supply vs BTC Price")
+
+    # 4. BOTÓN DE REPORTE
+    csv = df_mayer.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Descargar Reporte Mayer", data=csv, file_name="mayer_report_gorostiaga.csv", mime="text/csv")
+    
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
 st.markdown(
@@ -473,6 +546,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
