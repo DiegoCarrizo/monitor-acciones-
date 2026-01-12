@@ -34,128 +34,37 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("📊 Monitor de Valuación y Tendencia: Merval & USA")
-
-    # 1. LISTA DE TICKERS UNIFICADA
+    st.subheader("📊 Valuación de Empresas (Merval & USA)")
+    
     tickers_dict = {
-        'ALUA.BA': '🇦🇷 Aluar', 'BBAR.BA': '🇦🇷 BBVA Francés', 'BMA.BA': '🇦🇷 Banco Macro',
-        'BYMA.BA': '🇦🇷 BYMA', 'CEPU.BA': '🇦🇷 Central Puerto', 'COME.BA': '🇦🇷 Comercial Plata',
-        'EDN.BA': '🇦🇷 Edenor', 'GGAL.BA': '🇦🇷 Grupo Galicia', 'LOMA.BA': '🇦🇷 Loma Negra',
-        'METR.BA': '🇦🇷 Metrogas', 'PAMP.BA': '🇦🇷 Pampa Energía', 'SUPV.BA': '🇦🇷 Supervielle',
-        'TECO2.BA': '🇦🇷 Telecom', 'TGNO4.BA': '🇦🇷 TGN', 'TGSU2.BA': '🇦🇷 TGS',
-        'TRAN.BA': '🇦🇷 Transener', 'TXAR.BA': '🇦🇷 Ternium', 'YPFD.BA': '🇦🇷 YPF',
-        'AAPL': '🇺🇸 Apple', 'AMZN': '🇺🇸 Amazon', 'MSFT': '🇺🇸 Microsoft', 'NVDA': '🇺🇸 NVIDIA',
-        'TSLA': '🇺🇸 Tesla', 'KO': '🇺🇸 Coca-Cola', 'MELI': '🇺🇸 Mercado Libre', 'GOLD': '🇺🇸 Barrick Gold'
+        'ALUA.BA': 'Aluar', 'GGAL.BA': 'Galicia', 'YPFD.BA': 'YPF', 'PAMP.BA': 'Pampa',
+        'AAPL': 'Apple', 'NVDA': 'NVIDIA', 'MELI': 'Mercado Libre'
     }
-
+    
     @st.cache_data(ttl=600)
-    def obtener_analisis_profundo(lista_tickers):
-        data_resumen = []
-        for t in lista_tickers:
+    def cargar_acciones(lista):
+        resumen = []
+        for t in lista:
             try:
-                # Descarga individual para mayor estabilidad
-                tk_obj = yf.Ticker(t)
-                hist = tk_obj.history(period="2y")
-                
-                if not hist.empty and len(hist) > 1:
-                    precio_actual = hist['Close'].iloc[-1]
-                    precio_ayer = hist['Close'].iloc[-2]
-                    var_diaria = ((precio_actual / precio_ayer) - 1) * 100
-                    
-                    # Media Móvil 200d
-                    if len(hist) >= 200:
-                        sma_200 = hist['Close'].rolling(window=200).mean().iloc[-1]
-                        dist_sma200 = ((precio_actual / sma_200) - 1) * 100
-                        tendencia_largo = "📈 BULL" if precio_actual > sma_200 else "📉 BEAR"
-                    else:
-                        dist_sma200 = 0
-                        tendencia_largo = "⌛ S/D"
-
-                    info = tk_obj.info
-                    per = info.get('trailingPE', 0)
-                    pb = info.get('priceToBook', 0)
-                    mkt_cap = info.get('marketCap', 0) / 1e9 
-
-                    data_resumen.append({
-                        'Activo': tickers_dict[t], 
-                        'Ticker': t, 
-                        'Precio': round(precio_actual, 2),
-                        'Var %': round(var_diaria, 2), 
-                        'PER': round(per, 2) if per and per > 0 else "N/A",
-                        'P/B': round(pb, 2) if pb and pb > 0 else "N/A", 
-                        'Tendencia 200d': tendencia_largo,
-                        'Dist. SMA200': f"{dist_sma200:.1f}%", 
-                        'Mkt Cap (Bn)': f"{mkt_cap:.2f}"
+                # Descargamos 7 días para asegurar cierre del viernes
+                tk = yf.Ticker(t, session=session)
+                h = tk.history(period="7d")
+                if not h.empty:
+                    p_actual = h['Close'].iloc[-1]
+                    var = ((p_actual / h['Close'].iloc[-2]) - 1) * 100
+                    resumen.append({
+                        "Ticker": t, "Nombre": tickers_dict[t],
+                        "Precio": p_actual, "Var %": var,
+                        "P/B": tk.info.get('priceToBook', 'N/A')
                     })
-            except Exception as e:
-                continue
-        return pd.DataFrame(data_resumen)
+            except: continue
+        return pd.DataFrame(resumen)
 
-    df_final_pro = obtener_analisis_profundo(list(tickers_dict.keys()))
-
-    if not df_final_pro.empty:
-        busqueda = st.text_input("🔍 Buscar activo...")
-        df_filtrada = df_final_pro.copy()
-        if busqueda:
-            df_filtrada = df_final_pro[df_final_pro['Activo'].str.contains(busqueda, case=False) | df_final_pro['Ticker'].str.contains(busqueda, case=False)]
-
-        # Estilización Segura
-        def style_var(val):
-            color = "#27ae60" if val > 0 else "#e74c3c"
-            return f'color: {color}; font-weight: bold'
-
-        st.dataframe(
-            df_filtrada.style.applymap(style_var, subset=['Var %']),
-            use_container_width=True, 
-            hide_index=True
-        )
-
-        # --- SECCIÓN DE BALANCES ---
-        st.markdown("---")
-        st.subheader("📊 Reporte de Performance Reciente")
-        accion_sel = st.selectbox("📈 Seleccione activo para visualizar resultados:", df_final_pro['Ticker'].tolist())
-
-        @st.cache_data(ttl=3600)
-        def obtener_balances_pro(ticker_str):
-            try:
-                tk = yf.Ticker(ticker_str)
-                bal = tk.quarterly_financials.T
-                if bal.empty: return None
-                
-                # Tomamos los últimos 4 trimestres disponibles (no solo 2024)
-                bal_reciente = bal.head(4).sort_index()
-                
-                return pd.DataFrame({
-                    'Trimestre': bal_reciente.index.strftime('%b %Y'),
-                    'Ingresos': bal_reciente.get('Total Revenue', 0),
-                    'EBITDA': bal_reciente.get('Ebitda', bal_reciente.get('Operating Income', 0)),
-                    'Ganancia Neta': bal_reciente.get('Net Income', 0)
-                })
-            except: return None
-
-        df_bal = obtener_balances_pro(accion_sel)
-        
-        if df_bal is not None:
-            # Gráfico de Barras con Plotly
-            
-            fig_bal = go.Figure()
-            metrics = [
-                {'col': 'Ingresos', 'name': 'Ventas', 'color': '#1f77b4'},
-                {'col': 'EBITDA', 'name': 'EBITDA', 'color': '#ff7f0e'},
-                {'col': 'Ganancia Neta', 'name': 'Resultado', 'color': '#2ca02c'}
-            ]
-
-            for m in metrics:
-                fig_bal.add_trace(go.Bar(
-                    x=df_bal['Trimestre'], y=df_bal[m['col']],
-                    name=m['name'], marker_color=m['color']
-                ))
-
-            fig_bal.update_layout(template="plotly_dark", barmode='group', height=400)
-            st.plotly_chart(fig_bal, use_container_width=True)
-            st.table(df_bal)
-        else:
-            st.info("No hay datos de balances recientes disponibles para este ticker.")
+    df_acc = cargar_acciones(list(tickers_dict.keys()))
+    if not df_acc.empty:
+        st.dataframe(df_acc.style.format({'Precio': '{:.2f}', 'Var %': '{:.2f}%'}), use_container_width=True)
+    else:
+        st.warning("Mercado en pausa o error de conexión. Reintentando...")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Inflación 2025-2026")
@@ -604,6 +513,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
