@@ -518,6 +518,54 @@ with tab4:
     st.markdown("---")
     st.subheader("📊 Bitcoin vs Liquidez Global (M2)")
     st.components.v1.iframe("https://bitcoincounterflow.com/charts/m2-global/", height=600, scrolling=True)
+
+with tab5:
+    st.subheader("⚖️ Monitor de Brechas y Arbitraje de Moneda")
+
+    # 1. DATOS DE REFERENCIA (Podés usar yfinance o una API de confianza)
+    # Tickers de referencia: GGAL.BA vs GGAL (ADR) para el CCL
+    def obtener_brechas():
+        # Referencias Manuales o vía API (Placeholder de precios actuales)
+        oficial = 1050.00
+        mep = 1200.00
+        ccl = 1250.00
+        tarjeta = oficial * 1.60 # Ejemplo con impuestos
+        
+        datos = [
+            {"Tipo de Cambio": "Oficial (BCRA)", "Precio": oficial, "Brecha %": 0},
+            {"Tipo de Cambio": "Dólar MEP", "Precio": mep, "Brecha %": (mep/oficial-1)*100},
+            {"Tipo de Cambio": "Contado con Liqui (CCL)", "Precio": ccl, "Brecha %": (ccl/oficial-1)*100},
+            {"Tipo de Cambio": "Dólar Tarjeta", "Precio": tarjeta, "Brecha %": (tarjeta/oficial-1)*100}
+        ]
+        return pd.DataFrame(datos)
+
+    df_brechas = obtener_brechas()
+
+    # 2. MÉTRICA DE RIESGO PAÍS (Placeholder)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.metric("Riesgo País (EMBI)", "1150 bps", "-45 bps", delta_color="normal")
+    with c2:
+        st.metric("Brecha Promedio", f"{round(df_brechas['Brecha %'].mean(), 1)}%", "-2.1%")
+
+    # 3. TABLA DE ARBITRAJE
+    st.dataframe(
+        df_brechas.style.format({'Precio': '$ {:,.2f}', 'Brecha %': '{:.1f}%'}),
+        use_container_width=True, hide_index=True
+    )
+
+    # 4. GRÁFICO DE HISTORIA DE LA BRECHA
+    st.markdown("---")
+    st.subheader("📈 Atractivo del Carry Trade")
+    
+    # Lógica de asesoría
+    tasa_badlar = 3.5 # TEM
+    devaluacion_esperada = 2.0 # Crowling Peg
+    
+    if tasa_badlar > devaluacion_esperada:
+        st.success(f"**Escenario de Carry Trade:** La tasa en pesos ({tasa_badlar}%) es mayor a la devaluación ({devaluacion_esperada}%). Favorece quedarse en pesos.")
+    else:
+        st.warning("**Escenario de Cobertura:** La devaluación proyectada supera la tasa. Momento de dolarizar carteras.")
     
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
@@ -530,6 +578,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
