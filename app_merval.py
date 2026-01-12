@@ -1,9 +1,15 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import plotly.graph_objects as go
 import requests
-from datetime import datetime, timedelta
+
+# --- SESIÓN ANTIBLOQUEO ---
+# Esto evita que Yahoo devuelva datos vacíos
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+}
+session = requests.Session()
+session.headers.update(headers)
 
 # --- CONFIGURACIÓN DE CONEXIÓN SEGURA ---
 session = requests.Session()
@@ -34,37 +40,59 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("📊 Valuación de Empresas (Merval & USA)")
-    
-    tickers_dict = {
-        'ALUA.BA': 'Aluar', 'GGAL.BA': 'Galicia', 'YPFD.BA': 'YPF', 'PAMP.BA': 'Pampa',
-        'AAPL': 'Apple', 'NVDA': 'NVIDIA', 'MELI': 'Mercado Libre'
-    }
-    
-    @st.cache_data(ttl=600)
-    def cargar_acciones(lista):
-        resumen = []
-        for t in lista:
-            try:
-                # Descargamos 7 días para asegurar cierre del viernes
-                tk = yf.Ticker(t, session=session)
-                h = tk.history(period="7d")
-                if not h.empty:
-                    p_actual = h['Close'].iloc[-1]
-                    var = ((p_actual / h['Close'].iloc[-2]) - 1) * 100
-                    resumen.append({
-                        "Ticker": t, "Nombre": tickers_dict[t],
-                        "Precio": p_actual, "Var %": var,
-                        "P/B": tk.info.get('priceToBook', 'N/A')
-                    })
-            except: continue
-        return pd.DataFrame(resumen)
+    st.subheader("📊 Panel de Acciones - Gorostiaga Bursátil")
 
-    df_acc = cargar_acciones(list(tickers_dict.keys()))
-    if not df_acc.empty:
-        st.dataframe(df_acc.style.format({'Precio': '{:.2f}', 'Var %': '{:.2f}%'}), use_container_width=True)
+    # Lista reducida para probar que funcione rápido
+    tickers_dict = {
+        'ALUA.BA': 'Aluar', 'GGAL.BA': 'Galicia', 'YPFD.BA': 'YPF', 
+        'PAMP.BA': 'Pampa', 'AAPL': 'Apple', 'NVDA': 'NVIDIA'
+    }
+
+    @st.cache_data(ttl=600)
+    def obtener_datos_seguros(lista_tickers):
+        resultados = []
+        for ticker in lista_tickers:
+            try:
+                # Usamos la sesión configurada arriba
+                tk = yf.Ticker(ticker, session=session)
+                # Pedimos 5 días para asegurar que encuentre el cierre del viernes
+                hist = tk.history(period="5d")
+                
+                if not hist.empty:
+                    p_actual = hist['Close'].iloc[-1]
+                    p_anterior = hist['Close'].iloc[-2]
+                    cambio = ((p_actual / p_anterior) - 1) * 100
+                    
+                    resultados.append({
+                        "Ticker": ticker.replace(".BA", ""),
+                        "Empresa": tickers_dict[ticker],
+                        "Precio": round(p_actual, 2),
+                        "Var %": round(cambio, 2),
+                        "Cierre": hist.index[-1].strftime('%d/%m')
+                    })
+            except Exception as e:
+                continue # Si una falla, sigue con la otra
+        return pd.DataFrame(resultados)
+
+    # Ejecutar descarga
+    df_acciones = obtener_datos_seguros(list(tickers_dict.keys()))
+
+    if not df_acciones.empty:
+        # Buscador opcional
+        busqueda = st.text_input("🔍 Filtrar por nombre o ticker...")
+        if busqueda:
+            df_acciones = df_acciones[df_acciones['Empresa'].str.contains(busqueda, case=False) | 
+                                      df_acciones['Ticker'].str.contains(busqueda, case=False)]
+
+        # Mostrar tabla
+        st.dataframe(
+            df_acciones.style.format({'Precio': '${:,.2f}', 'Var %': '{:,.2f}%'})
+            .applymap(lambda x: 'color: #27ae60' if x > 0 else 'color: #e74c3c', subset=['Var %']),
+            use_container_width=True,
+            hide_index=True
+        )
     else:
-        st.warning("Mercado en pausa o error de conexión. Reintentando...")
+        st.error("⚠️ Yahoo Finance bloqueó la conexión temporalmente. Por favor, refrescá la página (F5) en 1 minuto.")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Inflación 2025-2026")
@@ -513,6 +541,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
