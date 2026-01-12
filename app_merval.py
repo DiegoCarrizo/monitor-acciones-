@@ -188,11 +188,16 @@ import numpy as np
 
 # --- PESTAÑA 3: ESTRUCTURA DE TASAS ---
 with tab3:
-    st.subheader("🏦 Curva de Rendimientos Promedio vs. Inflación")
+    st.subheader("🏦 Curva de Rendimientos y Calculadora de Ganancia Real")
 
-    # 1. CAPITAL DE REFERENCIA Y PARÁMETROS
-    capital_inv = 1000000  # Capital de ejemplo
-    inflacion_referencia = 3.0 # Viene de tu tabla de inflación
+    # 1. INPUT DE CAPITAL INTERACTIVO
+    # Esto permite que el cliente vea el impacto real en su bolsillo
+    col_cap1, col_cap2 = st.columns([1, 2])
+    with col_cap1:
+        capital_inv = st.number_input("Capital a invertir ($):", value=1000000, step=100000, format="%d")
+    
+    # Referencia de inflación (unificada con tu tabla anterior)
+    inflacion_referencia = 3.0 
     
     # 2. PROCESAMIENTO DE DATOS
     datos = {
@@ -202,26 +207,23 @@ with tab3:
     }
     df = pd.DataFrame(datos)
     
-    # Cálculos
+    # Cálculos de Curva y Ganancia
     df_linea = df.groupby('Plazo_Meses')['TEM'].mean().reset_index()
     df['Tasa Real'] = df['TEM'] - inflacion_referencia
-    
-    # Cálculo de Ganancia Extra sobre 1M vs Inflación
-    # (Capital * Tasa Real / 100)
     df['Ganancia Extra ($)'] = (capital_inv * (df['Tasa Real'] / 100))
 
-    # 3. GRÁFICO PROFESIONAL CON SPLINE
+    # 3. GRÁFICO DE CURVA PROMEDIO (SPLINE)
     
     fig_curva = go.Figure()
 
-    # Puntos (Bonos)
+    # Puntos de instrumentos (Azul)
     fig_curva.add_trace(go.Scatter(
         x=df['Plazo_Meses'], y=df['TEM'], mode='markers',
-        name='Bonos/Lecaps', marker=dict(color='#3498db', size=10, symbol='diamond'),
+        name='Instrumentos', marker=dict(color='#3498db', size=10, symbol='diamond'),
         text=df['Ticker'], hovertemplate="<b>%{text}</b><br>TEM: %{y}%<extra></extra>"
     ))
 
-    # Curva Promedio (Línea Amarilla)
+    # Línea de Promedio Market (Amarilla)
     fig_curva.add_trace(go.Scatter(
         x=df_linea['Plazo_Meses'], y=df_linea['TEM'],
         mode='lines', name='Curva Promedio',
@@ -230,32 +232,36 @@ with tab3:
 
     # Línea Inflación (Roja)
     fig_curva.add_hline(y=inflacion_referencia, line_dash="dash", line_color="#e74c3c",
-                        annotation_text=f"Inflación Ref: {inflacion_referencia}%", annotation_position="top left")
+                        annotation_text=f"Referencia Inflación: {inflacion_referencia}%", 
+                        annotation_position="top left")
 
-    fig_curva.update_layout(template="plotly_dark", height=450, xaxis_title="Plazo (Meses)", yaxis_title="TEM %")
+    fig_curva.update_layout(
+        template="plotly_dark", 
+        height=450, 
+        xaxis_title="Plazo (Meses al vencimiento)", 
+        yaxis_title="TEM %",
+        hovermode="x unified"
+    )
     st.plotly_chart(fig_curva, use_container_width=True)
 
-    # 4. TABLA CON SEMÁFORO Y GANANCIA NOMINAL
-    st.markdown(f"### 📋 Análisis de Tasa Real (Sobre Inversión de ${capital_inv:,.0f})")
+    # 4. TABLA CON SEMÁFORO VISUAL Y GANANCIA NOMINAL
+    st.markdown(f"### 📋 Detalle de Ganancia Real sobre ${capital_inv:,.0f}")
     
-    def estilo_tasa_real(val):
+    # Función para pintar de verde lo que rinde más que la infla
+    def estilo_ganancia(val):
         color = '#2ecc71' if val > 0 else '#e74c3c'
         return f'color: {color}; font-weight: bold'
 
-    # Ordenamos y mostramos
-    df_final = df.sort_values('Plazo_Meses')
-    
     st.dataframe(
-        df_final.style.applymap(estilo_tasa_real, subset=['Tasa Real', 'Ganancia Extra ($)'])
+        df.sort_values('Plazo_Meses').style.applymap(estilo_ganancia, subset=['Tasa Real', 'Ganancia Extra ($)'])
         .format({
             'TEM': '{:.2f}%', 
             'Tasa Real': '{:.2f}%', 
             'Ganancia Extra ($)': '$ {:,.0f}'
         }),
-        use_container_width=True,
+        use_container_width=True, 
         hide_index=True
     )
-
 # --- PESTAÑA 3: TASAS Y BONOS (OTRAS MÉTRICAS) ---
 with tab3:
     st.subheader("🏦 Mercado de Deuda y Tasas BNA")
@@ -467,6 +473,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
