@@ -41,110 +41,91 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("🏛️ Terminal de Valuación: Merval & USA")
+    st.subheader("🏛️ Consola de Valuación Quant")
 
-    # 1. BOTÓN DE ACTUALIZACIÓN
-    if st.button('🔄 Sincronizar Monitor'):
-        st.cache_data.clear()
-        st.rerun()
-
-    # 2. DICCIONARIO DE BALANCES (Datos reales de los últimos trimestrales)
-    # Estos valores NO dependen de Yahoo. Los definimos nosotros para asegurar el cálculo.
-    # EPS = Ganancia por Acción anualizada | BV = Valor Libros por Acción
-    balances = {
-        'ALUA.BA': {'EPS': 142.10, 'BV': 980.50},
-        'GGAL.BA': {'EPS': 310.40, 'BV': 1350.20},
-        'YPFD.BA': {'EPS': 420.00, 'BV': 42000.00},
-        'PAMP.BA': {'EPS': 210.30, 'BV': 1680.00},
-        'BMA.BA': {'EPS': 285.60, 'BV': 1520.40},
-        'CEPU.BA': {'EPS': 112.40, 'BV': 1250.00},
-        'TXAR.BA': {'EPS': 105.20, 'BV': 1180.30}
-    }
-    
-    ny_list = ['AAPL', 'NVDA', 'MSFT', 'TSLA', 'MELI']
-
-    @st.cache_data(ttl=3600)
-    def construir_panel_final():
-        resumen = []
+    # 1. CONSOLA DE CARA MANUAL (Plegable para que no moleste)
+    with st.expander("📥 CARGA DE DATOS DE BALANCES (Editar aquí)"):
+        st.write("Ingrese los datos del último balance trimestral/anual:")
         
-        # --- PROCESAMIENTO ARGENTINA ---
-        for t, b in balances.items():
-            try:
-                tk = yf.Ticker(t, session=session)
-                h = tk.history(period="5d")
-                if h.empty: continue
-                precio = h['Close'].iloc[-1]
-                
-                # CÁLCULO MANUAL (Inmune a fallos de API)
-                per_calc = precio / b['EPS']
-                pb_calc = precio / b['BV']
-                
-                resumen.append({
-                    "Ticker": t.replace(".BA", ""),
-                    "Precio ($)": round(float(precio), 2),
-                    "PER (Años)": round(float(per_calc), 1),
-                    "P/B (Ratio)": round(float(pb_calc), 2),
-                    "Estado": "🟢 BARATO" if pb_calc < 1.0 else "🟡 NEUTRO"
-                })
-            except: continue
+        # Usamos un editor de datos para que sea fácil como un Excel
+        datos_iniciales = [
+            {"Ticker": "ALUA.BA", "Ganancia_Accion": 142.10, "Libros_Accion": 980.50},
+            {"Ticker": "GGAL.BA", "Ganancia_Accion": 310.40, "Libros_Accion": 1350.20},
+            {"Ticker": "YPFD.BA", "Ganancia_Accion": 420.00, "Libros_Accion": 42000.00},
+            {"Ticker": "PAMP.BA", "Ganancia_Accion": 210.30, "Libros_Accion": 1680.00},
+            {"Ticker": "AAPL", "Ganancia_Accion": 6.57, "Libros_Accion": 4.83}
+        ]
+        
+        # El usuario puede editar esta tabla directamente en la app
+        df_balances = st.data_editor(pd.DataFrame(datos_iniciales), num_rows="dynamic", key="editor_bal")
 
-        # --- PROCESAMIENTO USA ---
-        for t in ny_list:
-            try:
-                tk = yf.Ticker(t, session=session)
-                inf = tk.info
-                # Fallback: si info falla, usamos history para el precio
-                precio = inf.get('regularMarketPrice') or tk.history(period="1d")['Close'].iloc[-1]
-                
-                # Para USA Yahoo suele ser estable, pero calculamos por las dudas
-                eps_ny = inf.get('trailingEps', 1)
-                bv_ny = inf.get('bookValue', 1)
-                
-                per_ny = precio / eps_ny
-                pb_ny = precio / bv_ny
-                
-                resumen.append({
-                    "Ticker": t,
-                    "Precio ($)": round(float(precio), 2),
-                    "PER (Años)": round(float(per_ny), 1),
-                    "P/B (Ratio)": round(float(pb_ny), 2),
-                    "Estado": "🇺🇸 NY MKT"
-                })
-            except: continue
+    # 2. PROCESAMIENTO CON PRECIOS EN VIVO
+    if st.button('🔄 Sincronizar y Calcular Valuación'):
+        with st.spinner('Cruzando balances con precios de mercado...'):
+            resultados = []
+            for _, fila in df_balances.iterrows():
+                t = fila['Ticker']
+                try:
+                    tk = yf.Ticker(t, session=session)
+                    h = tk.history(period="1d")
+                    if h.empty: continue
+                    precio = float(h['Close'].iloc[-1])
+                    
+                    # CÁLCULOS MATEMÁTICOS
+                    # PER = Precio / Ganancia por Acción
+                    per = precio / fila['Ganancia_Accion']
+                    # P/B = Precio / Valor Libros por Acción
+                    pb = precio / fila['Libros_Accion']
+                    
+                    # Lógica de Estado
+                    if pb < 1.0:
+                        estado = "🟢 BARATO"
+                    elif 1.0 <= pb <= 2.0:
+                        estado = "🟡 NEUTRO"
+                    else:
+                        estado = "🔴 CARO"
+
+                    resultados.append({
+                        "Ticker": t.replace(".BA", ""),
+                        "Precio": precio,
+                        "PER": per,
+                        "PB": pb,
+                        "Valuacion": estado
+                    })
+                except:
+                    continue
             
-        return pd.DataFrame(resumen)
+            st.session_state.df_final = pd.DataFrame(resultados)
 
-    # 3. RENDERIZADO DE LA TABLA
-    df_panel = construir_panel_final()
-    if not df_panel.empty:
-        # Usamos st.dataframe con un formato limpio
-        st.dataframe(
-            df_panel.style.format({
-                'Precio ($)': '{:,.2f}',
-                'PER (Años)': '{:.1f}',
-                'P/B (Ratio)': '{:.2f}'
-            }).applymap(
-                lambda x: 'color: #adff2f; font-weight: bold' if x == "🟢 BARATO" else '',
-                subset=['Estado']
-            ),
-            use_container_width=True, hide_index=True
+    # 3. MOSTRAR RESULTADOS
+    if 'df_final' in st.session_state and st.session_state.df_final is not None:
+        st.markdown("### 📊 Resultado del Análisis de Valor")
+        
+        # Aplicamos el estilo de color
+        df_style = st.session_state.df_final.style.format({
+            'Precio': '${:,.2f}',
+            'PER': '{:.1f}x',
+            'PB': '{:.2f}x'
+        }).map(
+            lambda x: 'color: #adff2f; font-weight: bold' if "BARATO" in str(x) else ('color: #ff4b4b' if "CARO" in str(x) else ''),
+            subset=['Valuacion']
         )
+        
+        st.dataframe(df_style, use_container_width=True, hide_index=True)
+    else:
+        st.info("Complete los datos de balances arriba y presione 'Sincronizar' para ver la valuación.")
 
-    # 4. GLOSARIO DE TEORÍA DE VALOR
+    # 4. TRADINGVIEW (Gauge de Sentimiento)
     st.markdown("---")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.write("**PER (Price to Earnings):** Indica cuántos años de utilidades se están pagando por la acción. Un valor bajo sugiere subvaluación.")
-    with c2:
-        st.write("**P/B (Price to Book Value):** Relación precio vs capital propio. Si es menor a 1.0, compras activos físicos con descuento.")
-
-    # 5. ANÁLISIS TÉCNICO TRADINGVIEW
-    st.subheader("🎯 Termómetro de Mercado")
-    sel_acc = st.selectbox("Seleccione activo para ver el sentimiento:", list(balances.keys()) + ny_list)
+    st.subheader("🎯 Sentimiento Técnico (TradingView)")
+    
+    # Lista para el selector basada en lo que el usuario cargó
+    lista_tickers = df_balances['Ticker'].tolist()
+    sel_acc = st.selectbox("Analizar técnicamente:", lista_tickers)
+    
     tv_symbol = f"BCBA:{sel_acc.replace('.BA','')}" if ".BA" in sel_acc else sel_acc
     
-    # Widget corregido con doble llave para evitar SyntaxError de f-string
-    tv_gauge = f"""
+    tv_widget = f"""
     <div style="height:380px;">
         <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
         {{
@@ -161,7 +142,7 @@ with tab1:
         </script>
     </div>
     """
-    st.components.v1.html(tv_gauge, height=400)
+    st.components.v1.html(tv_widget, height=400)
         
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -611,6 +592,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
