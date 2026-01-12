@@ -48,8 +48,7 @@ with tab1:
         st.cache_data.clear()
         st.rerun()
 
-    # 2. DEFINICIÓN DE ACTIVOS Y DATOS FUNDAMENTALES (ARGENTINA)
-    # Los fundamentales de AR se cargan manualmente porque Yahoo no los provee para BCBA.
+    # 2. DATOS FUNDAMENTALES (ARGENTINA - DICCIONARIO FIJO PARA EVITAR VACÍOS)
     arg_data = {
         'ALUA.BA': {'Nombre': 'Aluar', 'PER': 11.2, 'PB': 1.05},
         'GGAL.BA': {'Nombre': 'Galicia', 'PER': 5.8, 'PB': 1.62},
@@ -65,72 +64,76 @@ with tab1:
     @st.cache_data(ttl=3600)
     def construir_tabla_pro():
         final_list = []
-        
-        # --- PROCESAR ARGENTINA (Precios Yahoo + Fundamentales Fijos) ---
-        for t, fund in arg_data.items(): # Corregido 'in'
+        # Argentina
+        for t, fund in arg_data.items():
             try:
                 tk = yf.Ticker(t, session=session)
-                h = tk.history(period="1d")
+                h = tk.history(period="5d")
                 if h.empty: continue
                 px = h['Close'].iloc[-1]
                 pb = fund['PB']
-                
                 final_list.append({
-                    "Ticker": t.replace(".BA", ""),
-                    "Precio": round(px, 2),
-                    "PER": fund['PER'],
-                    "P/B": pb,
+                    "Ticker": t.replace(".BA", ""), "Precio": round(px, 2),
+                    "PER": fund['PER'], "P/B": pb,
                     "Valuación": "🟢 BARATO" if pb < 1.0 else ("🟡 NEUTRO" if pb <= 2.0 else "🔴 CARO")
                 })
             except: continue
-
-        # --- PROCESAR NY (Todo vía Yahoo Finance) ---
+        # New York
         for t in ny_tickers:
             try:
                 tk = yf.Ticker(t, session=session)
                 info = tk.info
-                # Intentamos precio de info, sino de history
-                px = info.get('regularMarketPrice') or tk.history(period="1d")['Close'].iloc[-1]
+                px = info.get('regularMarketPrice') or tk.history(period="5d")['Close'].iloc[-1]
                 pb = info.get('priceToBook', 0)
                 per = info.get('trailingPE', 0)
-                
                 final_list.append({
-                    "Ticker": t,
-                    "Precio": round(px, 2),
-                    "PER": round(per, 1) if per else "N/A",
-                    "P/B": round(pb, 2) if pb else "N/A",
-                    "Valuación": "🟢 BARATO" if (isinstance(pb, (int, float)) and pb < 3.0) else "🔴 CARO"
+                    "Ticker": t, "Precio": round(px, 2),
+                    "PER": round(per, 1) if per else "N/A", "P/B": round(pb, 2) if pb else "N/A",
+                    "Valuación": "🟢 BARATO" if (isinstance(pb, (float, int)) and pb < 3.0) else "🔴 CARO"
                 })
             except: continue
-            
         return pd.DataFrame(final_list)
 
-    # 3. MOSTRAR TABLA DE DATOS
     df_pro = construir_tabla_pro()
     if not df_pro.empty:
         st.dataframe(
-            df_pro.style.applymap(
-                lambda v: 'color: #adff2f; font-weight: bold' if "BARATO" in str(v) else '', 
-                subset=['Valuación']
-            ),
+            df_pro.style.applymap(lambda v: 'color: #adff2f; font-weight: bold' if "BARATO" in str(v) else '', subset=['Valuación']),
             use_container_width=True, hide_index=True
         )
 
-    # 4. GLOSARIO RESUMIDO DE VALUACIÓN
-    with st.expander("📝 ¿Cómo leer estos indicadores? (Resumen)"):
-        st.markdown("""
-        * **PER (Price to Earnings):** Es el precio que pagás por cada peso de ganancia anual. Un PER de 5 significa que la empresa recupera tu inversión en 5 años. **Menos es mejor.**
-        * **P/B (Price to Book):** Relación entre el precio de mercado y el valor contable. Si es **menor a 1.0**, estás comprando la empresa por menos de lo que valen sus activos físicos (máquinas, inmuebles, etc.).
-        * **Valuación:** Clasificación basada en el P/B para identificar oportunidades de *Value Investing*.
-        """)
+    # 3. GLOSARIO
+    with st.expander("📝 ¿Cómo leer estos indicadores?"):
+        st.write("**PER:** Años de ganancias para recuperar la inversión. **P/B:** Relación Precio/Valor Libros ( < 1 es descuento).")
 
     st.markdown("---")
 
-    # 5. TERMÓMETRO TÉCNICO
+    # 4. TRADINGVIEW (CORREGIDO PARA EVITAR SYNTAXERROR)
     st.subheader("🎯 Termómetro de Sentimiento")
     opciones = list(arg_data.keys()) + ny_tickers
     sel = st.selectbox("Seleccione activo para análisis técnico:", opciones)
-    tv_s = f"BCBA:{sel
+    tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
+    
+    # IMPORTANTE: Usamos {{ }} para el JSON de TradingView
+    tv_html = f"""
+    <div style="height:350px;">
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+        {{
+            "interval": "1D",
+            "width": "100%",
+            "isTransparent": true,
+            "height": 350,
+            "symbol": "{tv_s}",
+            "showIntervalTabs": true,
+            "displayMode": "single",
+            "locale": "es",
+            "theme": "dark"
+        }}
+        </script>
+    </div>
+    """
+    st.components.v1.html(tv_html, height=380)
+
+# --- FIN DE PESTAÑA 1 ---
         
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -580,6 +583,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
