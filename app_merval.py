@@ -41,9 +41,9 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("🏛️ Terminal de Valuación & Target Prices")
+    st.subheader("🏛️ Terminal de Valuación: Merval & USA")
 
-    # 1. DEFINICIÓN DE DATOS (Primero los datos para evitar NameError)
+    # 1. DEFINICIÓN DE TICKERS
     tickers_dict = {
         'ALUA.BA': '🇦🇷 Aluar', 'BBAR.BA': '🇦🇷 BBVA Francés', 'BMA.BA': '🇦🇷 Banco Macro',
         'BYMA.BA': '🇦🇷 BYMA', 'CEPU.BA': '🇦🇷 Central Puerto', 'COME.BA': '🇦🇷 Comercial Plata',
@@ -55,14 +55,12 @@ with tab1:
         'TSLA': '🇺🇸 Tesla', 'KO': '🇺🇸 Coca-Cola', 'MELI': '🇺🇸 Mercado Libre', 'GOLD': '🇺🇸 Barrick Gold'
     }
 
-    # 2. BOTÓN DE ACTUALIZACIÓN
-    if st.button('🔄 Sincronizar Terminal'):
+    if st.button('🔄 Sincronizar Datos'):
         st.cache_data.clear()
         st.rerun()
 
-    # 3. FUNCIÓN DE PROCESAMIENTO
     @st.cache_data(ttl=3600)
-    def obtener_datos_pro(lista):
+    def obtener_datos_reforzados(lista):
         res = []
         for t in lista:
             try:
@@ -73,13 +71,22 @@ with tab1:
                 p_actual = h['Close'].iloc[-1]
                 info = tk.info
                 
-                # Fundamentales
-                pb = info.get('priceToBook', 0)
+                # --- EXTRACCIÓN REFORZADA DE DATOS ---
+                # PER: Probamos trailingPE, luego forwardPE
+                per = info.get('trailingPE') or info.get('forwardPE') or 0
+                
+                # P/B: Probamos priceToBook
+                pb = info.get('priceToBook') or 0
+                
+                # Si P/B sigue siendo 0, intentamos calcularlo manualmente: Mkt Cap / Book Value
+                if pb == 0 and info.get('bookValue'):
+                    pb = p_actual / info.get('bookValue')
+
                 ma200 = info.get('twoHundredDayAverage', p_actual)
                 target = info.get('targetMeanPrice', 0)
                 upside = ((target / p_actual) - 1) * 100 if target else 0
                 
-                # Valuación Austríaca (Precio vs Activos Reales)
+                # Valuación
                 if pb == 0: val_status = "S/D"
                 elif pb < 1.0: val_status = "🟢 BARATO"
                 elif 1.0 <= pb <= 2.5: val_status = "🟡 NEUTRO"
@@ -89,21 +96,19 @@ with tab1:
                     "Ticker": t.replace(".BA", ""),
                     "Nombre": tickers_dict[t],
                     "Precio": round(float(p_actual), 2),
+                    "PER": round(float(per), 1) if per else "N/A",
                     "P/B": round(float(pb), 2) if pb else 0.0,
-                    "Target Price": f"${target:,.2f}" if target else "N/A",
                     "Potencial %": round(float(upside), 1) if target else 0,
                     "Tendencia": "📈 BULL" if p_actual > ma200 else "📉 BEAR",
                     "Valuación": val_status
                 })
-            except:
-                continue
+            except: continue
         return pd.DataFrame(res)
 
-    # 4. EJECUCIÓN
-    df_quant = obtener_datos_pro(list(tickers_dict.keys()))
+    df_quant = obtener_datos_reforzados(list(tickers_dict.keys()))
 
     if not df_quant.empty:
-        # Estilo de la Tabla
+        # Formato de la tabla
         def style_val(v):
             if "BARATO" in str(v): return 'background-color: #1e4620; color: #adff2f; font-weight: bold'
             if "CARO" in str(v): return 'background-color: #4a1c1c; color: #ffcccb; font-weight: bold'
@@ -116,39 +121,30 @@ with tab1:
         )
 
     st.markdown("---")
-
-    # 5. TRADINGVIEW GAUGE (Widget Técnico)
-    st.subheader("🎯 Sentimiento Técnico & Consenso")
-    col_g1, col_g2 = st.columns([3, 2])
     
-    with col_g1:
-        sel = st.selectbox("Activo para análisis técnico:", list(tickers_dict.keys()))
-        tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
-        
-        # Widget corregido con cierre de comillas estricto
-        tv_gauge_code = f"""
-        <div class="tradingview-widget-container">
-          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-          {{
+    # 2. WIDGET DE TRADINGVIEW (Sencillo y sin errores de comillas)
+    st.subheader("🎯 Análisis Técnico & Gauge")
+    sel_ticker = st.selectbox("Seleccione activo:", list(tickers_dict.keys()))
+    tv_symbol = f"BCBA:{sel_ticker.replace('.BA','')}" if ".BA" in sel_ticker else sel_ticker
+    
+    tv_html = f"""
+    <div style="height:400px;">
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+        {{
             "interval": "1D",
             "width": "100%",
             "isTransparent": true,
             "height": 400,
-            "symbol": "{tv_s}",
+            "symbol": "{tv_symbol}",
             "showIntervalTabs": true,
             "displayMode": "single",
             "locale": "es",
             "theme": "dark"
-          }}
-          </script>
-        </div>
-        """
-        st.components.v1.html(tv_gauge_code, height=420)
-
-    with col_g2:
-        st.info(f"📊 **Análisis para {sel}**")
-        st.write("La métrica **P/B (Price to Book)** indica cuántas veces pagás el valor contable de la empresa.")
-        st.write("Comprar por debajo de **P/B 1.0** es adquirir activos con descuento sobre su costo de reposición.")
+        }}
+        </script>
+    </div>
+    """
+    st.components.v1.html(tv_html, height=420)
         
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -598,6 +594,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
