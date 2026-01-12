@@ -41,108 +41,107 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("🏛️ Consola de Valuación Quant")
+    st.subheader("🏛️ Consola de Valuación Gorostiaga")
 
-    # 1. CONSOLA DE CARA MANUAL (Plegable para que no moleste)
-    with st.expander("📥 CARGA DE DATOS DE BALANCES (Editar aquí)"):
-        st.write("Ingrese los datos del último balance trimestral/anual:")
-        
-        # Usamos un editor de datos para que sea fácil como un Excel
-        datos_iniciales = [
-            {"Ticker": "ALUA.BA", "Ganancia_Accion": 142.10, "Libros_Accion": 980.50},
-            {"Ticker": "GGAL.BA", "Ganancia_Accion": 310.40, "Libros_Accion": 1350.20},
-            {"Ticker": "YPFD.BA", "Ganancia_Accion": 420.00, "Libros_Accion": 42000.00},
-            {"Ticker": "PAMP.BA", "Ganancia_Accion": 210.30, "Libros_Accion": 1680.00},
+    # 1. CARGA DE DATOS DE BALANCES
+    st.markdown("### 📥 1. Cargar Datos de Balances")
+    st.info("Editá los valores de Ganancia y Libros según el último balance. Luego presioná el botón de abajo.")
+    
+    # Datos iniciales de ejemplo
+    if 'datos_base' not in st.session_state:
+        st.session_state.datos_base = [
+            {"Ticker": "ALUA.BA", "Ganancia_Accion": 142.1, "Libros_Accion": 980.5},
+            {"Ticker": "GGAL.BA", "Ganancia_Accion": 310.4, "Libros_Accion": 1350.2},
+            {"Ticker": "YPFD.BA", "Ganancia_Accion": 420.0, "Libros_Accion": 42000.0},
+            {"Ticker": "PAMP.BA", "Ganancia_Accion": 210.3, "Libros_Accion": 1680.0},
             {"Ticker": "AAPL", "Ganancia_Accion": 6.57, "Libros_Accion": 4.83}
         ]
-        
-        # El usuario puede editar esta tabla directamente en la app
-        df_balances = st.data_editor(pd.DataFrame(datos_iniciales), num_rows="dynamic", key="editor_bal")
 
-    # 2. PROCESAMIENTO CON PRECIOS EN VIVO
+    # Editor de datos
+    df_editor = st.data_editor(st.session_state.datos_base, num_rows="dynamic", key="editor_balances")
+
+    # 2. BOTÓN DE PROCESAMIENTO
     if st.button('🔄 Sincronizar y Calcular Valuación'):
-        with st.spinner('Cruzando balances con precios de mercado...'):
+        with st.spinner('Obteniendo precios y calculando ratios...'):
             resultados = []
-            for _, fila in df_balances.iterrows():
-                t = fila['Ticker']
-                try:
-                    tk = yf.Ticker(t, session=session)
-                    h = tk.history(period="1d")
-                    if h.empty: continue
-                    precio = float(h['Close'].iloc[-1])
-                    
-                    # CÁLCULOS MATEMÁTICOS
-                    # PER = Precio / Ganancia por Acción
-                    per = precio / fila['Ganancia_Accion']
-                    # P/B = Precio / Valor Libros por Acción
-                    pb = precio / fila['Libros_Accion']
-                    
-                    # Lógica de Estado
-                    if pb < 1.0:
-                        estado = "🟢 BARATO"
-                    elif 1.0 <= pb <= 2.0:
-                        estado = "🟡 NEUTRO"
-                    else:
-                        estado = "🔴 CARO"
+            for fila in df_editor:
+                t = fila.get('Ticker')
+                eps = fila.get('Ganancia_Accion')
+                bv = fila.get('Libros_Accion')
+                
+                if t and eps and bv:
+                    try:
+                        tk = yf.Ticker(t, session=session)
+                        h = tk.history(period="1d")
+                        if h.empty: continue
+                        precio = float(h['Close'].iloc[-1])
+                        
+                        # Cálculos
+                        per = precio / eps
+                        pb = precio / bv
+                        
+                        # Lógica de Valuación
+                        if pb < 1.0:
+                            status = "🟢 BARATO"
+                        elif 1.0 <= pb <= 2.2:
+                            status = "🟡 NEUTRO"
+                        else:
+                            status = "🔴 CARO"
 
-                    resultados.append({
-                        "Ticker": t.replace(".BA", ""),
-                        "Precio": precio,
-                        "PER": per,
-                        "PB": pb,
-                        "Valuacion": estado
-                    })
-                except:
-                    continue
+                        resultados.append({
+                            "Ticker": t.replace(".BA", ""),
+                            "Precio": precio,
+                            "PER": round(per, 1),
+                            "P/B": round(pb, 2),
+                            "Valuacion": status
+                        })
+                    except Exception as e:
+                        continue
             
-            st.session_state.df_final = pd.DataFrame(resultados)
+            if resultados:
+                st.session_state.df_final = pd.DataFrame(resultados)
+            else:
+                st.error("No se pudieron obtener precios. Verificá los Tickers.")
 
-    # 3. MOSTRAR RESULTADOS
-    if 'df_final' in st.session_state and st.session_state.df_final is not None:
-        st.markdown("### 📊 Resultado del Análisis de Valor")
-        
-        # Aplicamos el estilo de color
-        df_style = st.session_state.df_final.style.format({
-            'Precio': '${:,.2f}',
-            'PER': '{:.1f}x',
-            'PB': '{:.2f}x'
-        }).map(
-            lambda x: 'color: #adff2f; font-weight: bold' if "BARATO" in str(x) else ('color: #ff4b4b' if "CARO" in str(x) else ''),
-            subset=['Valuacion']
-        )
-        
-        st.dataframe(df_style, use_container_width=True, hide_index=True)
-    else:
-        st.info("Complete los datos de balances arriba y presione 'Sincronizar' para ver la valuación.")
-
-    # 4. TRADINGVIEW (Gauge de Sentimiento)
+    # 3. TABLA DE RESULTADOS
     st.markdown("---")
-    st.subheader("🎯 Sentimiento Técnico (TradingView)")
-    
-    # Lista para el selector basada en lo que el usuario cargó
-    lista_tickers = df_balances['Ticker'].tolist()
-    sel_acc = st.selectbox("Analizar técnicamente:", lista_tickers)
-    
-    tv_symbol = f"BCBA:{sel_acc.replace('.BA','')}" if ".BA" in sel_acc else sel_acc
-    
-    tv_widget = f"""
-    <div style="height:380px;">
-        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
-        {{
-            "interval": "1D",
-            "width": "100%",
-            "isTransparent": true,
-            "height": 380,
-            "symbol": "{tv_symbol}",
-            "showIntervalTabs": true,
-            "displayMode": "single",
-            "locale": "es",
-            "theme": "dark"
-        }}
-        </script>
-    </div>
-    """
-    st.components.v1.html(tv_widget, height=400)
+    if 'df_final' in st.session_state:
+        st.markdown("### 📊 2. Análisis de Valor Resultante")
+        
+        # Formateo de la tabla para que sea profesional
+        st.dataframe(
+            st.session_state.df_final.style.format({
+                'Precio': '${:,.2f}',
+                'PER': '{:.1f}x',
+                'P/B': '{:.2f}x'
+            }).map(
+                lambda x: 'color: #adff2f; font-weight: bold' if "BARATO" in str(x) else ('color: #ff4b4b' if "CARO" in str(x) else ''),
+                subset=['Valuacion']
+            ),
+            use_container_width=True, hide_index=True
+        )
+    else:
+        st.warning("Cargá los datos arriba y presioná el botón para generar la valuación.")
+
+    # 4. TRADINGVIEW (Gauge)
+    st.markdown("---")
+    st.subheader("🎯 3. Sentimiento Técnico")
+    lista_opciones = [f.get('Ticker') for f in df_editor if f.get('Ticker')]
+    if lista_opciones:
+        sel = st.selectbox("Ver análisis técnico de:", lista_opciones)
+        tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
+        
+        tv_html = f"""
+        <div style="height:350px;">
+            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+            {{
+                "interval": "1D", "width": "100%", "isTransparent": true, "height": 350,
+                "symbol": "{tv_s}", "showIntervalTabs": true, "displayMode": "single", "locale": "es", "theme": "dark"
+            }}
+            </script>
+        </div>
+        """
+        st.components.v1.html(tv_html, height=380)
         
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -592,6 +591,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
