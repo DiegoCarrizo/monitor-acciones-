@@ -520,7 +520,7 @@ with tab4:
     st.components.v1.iframe("https://bitcoincounterflow.com/charts/m2-global/", height=600, scrolling=True)
 
 with tab5:
-    st.subheader("⚖️ Monitor de Arbitraje y análisis de oportunidad")
+    st.subheader("⚖️ Monitor de Arbitraje")
 
     @st.cache_data(ttl=600)
     def obtener_dolares_reales():
@@ -531,67 +531,80 @@ with tab5:
             al30 = yf.download("AL30.BA", period="7d", progress=False)
             al30d = yf.download("AL30D.BA", period="7d", progress=False)
             if not al30.empty and not al30d.empty:
-                datos["mep"] = float(al30['Close'].dropna().iloc[-1] / al30d['Close'].dropna().iloc[-1])
+                al30_p = al30['Close'].dropna().iloc[-1]
+                al30d_p = al30d['Close'].dropna().iloc[-1]
+                if al30d_p > 0:
+                    datos["mep"] = float(al30_p / al30d_p)
 
             ggal_ba = yf.download("GGAL.BA", period="7d", progress=False)
             ggal_us = yf.download("GGAL", period="7d", progress=False)
             if not ggal_ba.empty and not ggal_us.empty:
-                datos["ccl"] = float((ggal_ba['Close'].dropna().iloc[-1] / ggal_us['Close'].dropna().iloc[-1]) * 10)
+                ggal_l = ggal_ba['Close'].dropna().iloc[-1]
+                ggal_a = ggal_us['Close'].dropna().iloc[-1]
+                if ggal_a > 0:
+                    datos["ccl"] = float((ggal_l / ggal_a) * 10)
         except:
             pass
         return datos
 
     mkt = obtener_dolares_reales()
 
+    # --- CÁLCULO DE VARIABLES ---
+    brecha_mep = (mkt['mep'] / mkt['oficial'] - 1) * 100
+    brecha_ccl = (mkt['ccl'] / mkt['oficial'] - 1) * 100
+    canje = ((mkt['ccl'] / mkt['mep']) - 1) * 100
+
     # --- MÉTRICAS ---
     c1, c2, c3 = st.columns(3)
-    brecha_mep = (mkt['mep'] / mkt['oficial'] - 1) * 100
-    c1.metric("Dólar Oficial", f"${mkt['oficial']:,.2f}", "Referencia Real")
+    c1.metric("Dólar Oficial", f"${mkt['oficial']:,.2f}", "Referencia A3500")
     c2.metric("Dólar MEP", f"${mkt['mep']:,.2f}", f"{brecha_mep:.2f}% brecha")
-    c3.metric("Dólar CCL", f"${mkt['ccl']:,.2f}", f"{((mkt['ccl']/mkt['oficial'])-1)*100:.2f}% brecha")
+    c3.metric("Dólar CCL", f"${mkt['ccl']:,.2f}", f"{brecha_ccl:.2f}% brecha")
 
     # --- ANÁLISIS DE TEORÍA AUSTRÍACA ---
     st.markdown("---")
     st.subheader("🇦🇷 Diagnóstico de Inversión")
     
-    # Parámetros de la tesis
-    tasa_interes_real = 3.5  # Ejemplo de TEM Lecaps
-    expansion_monetaria_estimada = 2.5 # Estimación de emisión/pasivos
+    # Parámetros para la recomendación (Podes ajustar según el REM o datos BCRA)
+    tasa_interes_real = 3.8  # TEM de Lecaps (Pestaña 2)
+    inflacion_o_emision = 3.0 # Tasa de expansión de la moneda
     
     col_a1, col_a2 = st.columns([2, 1])
 
     with col_a1:
-        if tasa_interes_real > expansion_monetaria_estimada:
+        if tasa_interes_real > inflacion_o_emision:
             st.success("### 💹 Recomendación: Mantenerse en PESOS (Tasa)")
-            st.write("""
-            **Tesis:** Según la Escuela Austríaca, si la tasa de interés está por encima de la expansión de la base monetaria 
-            y hay una contracción del crédito/emisión, el peso recupera su función de reserva de valor temporal. 
-            Es un escenario de **Preferencia Temporal Alta** por la moneda local.
+            st.write(f"""
+            **Tesis:** La tasa de interés real ({tasa_interes_real}%) compensa la pérdida de poder adquisitivo. 
+            Cuando hay un orden monetario que restringe la emisión, la moneda local 
+            actúa como un medio de intercambio eficiente. La 'Preferencia Temporal' hoy premia el ahorro en pesos.
             """)
         else:
             st.error("### 💵 Recomendación: Dolarizar (Cobertura)")
             st.write("""
-            **Tesis:** La expansión artificial del crédito y la base monetaria diluye el valor de la moneda. 
-            Para evitar la destrucción del capital provocada por el impuesto inflacionario, 
-            el actor económico debe refugiarse en activos de **Escasez Real** (Dólar o Bitcoin).
+            **Tesis:** La inflación es un proceso de transferencia de riqueza mediante 
+            la dilución monetaria. Si la tasa no cubre la expansión, el peso es un 'bien en desuso'. 
+            Debes refugiarte en activos de escasez (Dólar) para preservar el capital frente al ciclo económico.
             """)
 
-    with col_a2:
-        st.info("**Indicadores:**")
-        st.write(f"- **Tasa Real:** {tasa_interes_real}%")
-        st.write(f"- **Emisión:** Controlada")
-        st.write("- **Precios:** Sinceramiento")
+    with col_cap_img:
+        
 
-    # --- TABLA DE ARBITRAJE ---
-    st.markdown("### 📋 Análisis Técnico de Cierre")
+    with col_a2:
+        st.info("**Termómetro**")
+        st.write(f"- **Tasa Real:** {tasa_interes_real}%")
+        st.write("- **Canje:** " + f"{canje:.2f}%")
+        st.write("- **Estado:** " + ("Sinceramiento" if brecha_mep < 20 else "Distorsión"))
+
+    # --- TABLA DE CIERRE ---
+    st.markdown("### 📋 Detalle Técnico al Cierre")
     df_dolares = pd.DataFrame([
-        {"Dólar": "Oficial", "Valor": mkt['oficial'], "Estado": "Anclado"},
-        {"Dólar": "MEP", "Valor": mkt['mep'], "Estado": "Mercado"},
-        {"Dólar": "CCL", "Valor": mkt['ccl'], "Estado": "Fuga/Arbitraje"}
+        {"Dólar": "Oficial Mayorista", "Valor": mkt['oficial'], "Canje Implícito": "-"},
+        {"Dólar": "MEP (AL30 BYMA)", "Valor": mkt['mep'], "Canje Implícito": "-"},
+        {"Dólar": "CCL (Especie C)", "Valor": mkt['ccl'], "Canje Implícito": f"{canje:.2f}%"}
     ])
     st.dataframe(df_dolares.style.format({'Valor': '${:,.2f}'}), use_container_width=True, hide_index=True)
 
-    st.info(f"**Nota de Mercado:** El fin de semana se mantienen los precios de cierre del viernes. El 'Canje' del {canje:.2f}% indica el costo actual para fugar divisas o entrar capital al país.")
+    st.info(f"**Nota de Mercado:** Precios congelados al cierre del viernes. El Canje del {canje:.2f}% indica el costo de arbitraje para movilizar capitales fuera del sistema local.")
 
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
@@ -604,6 +617,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
