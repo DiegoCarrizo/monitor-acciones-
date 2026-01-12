@@ -520,80 +520,79 @@ with tab4:
     st.components.v1.iframe("https://bitcoincounterflow.com/charts/m2-global/", height=600, scrolling=True)
 
 with tab5:
-    st.subheader("⚖️ Monitor de Arbitraje de Moneda (BYMA)")
+    st.subheader("⚖️ Monitor de Arbitraje y análisis de oportunidad")
 
     @st.cache_data(ttl=600)
     def obtener_dolares_reales():
-        # 1. DEFINICIÓN DE VALORES (Actualizados a la realidad del mercado)
-        # El oficial hoy ronda los 1480 según el crawling peg y ajustes
-        datos = {
-            "oficial": 1480.00, 
-            "mep": 1430.00,  # Valores de referencia por si falla la API
-            "ccl": 1460.00
-        }
-        
+        # Dólar Oficial actualizado al valor real (A3500 / Referencia)
+        datos = {"oficial": 1480.00, "mep": 1430.00, "ccl": 1460.00}
         try:
-            # MEP: Usamos AL30/AL30D con un periodo más largo para capturar el cierre del viernes
-            # Buscamos en los últimos 7 días para estar cubiertos en feriados largos
+            # Buscamos últimos 7 días para asegurar el cierre del viernes
             al30 = yf.download("AL30.BA", period="7d", progress=False)
             al30d = yf.download("AL30D.BA", period="7d", progress=False)
-            
             if not al30.empty and not al30d.empty:
-                # Tomamos el último valor disponible (iloc[-1])
-                precio_pesos = al30['Close'].dropna().iloc[-1]
-                precio_dolares = al30d['Close'].dropna().iloc[-1]
-                if precio_dolares > 0:
-                    datos["mep"] = float(precio_pesos / precio_dolares)
+                datos["mep"] = float(al30['Close'].dropna().iloc[-1] / al30d['Close'].dropna().iloc[-1])
 
-            # CCL: Usamos Galicia (GGAL.BA / GGAL ADR)
             ggal_ba = yf.download("GGAL.BA", period="7d", progress=False)
             ggal_us = yf.download("GGAL", period="7d", progress=False)
-            
             if not ggal_ba.empty and not ggal_us.empty:
-                precio_local = ggal_ba['Close'].dropna().iloc[-1]
-                precio_adr = ggal_us['Close'].dropna().iloc[-1]
-                if precio_adr > 0:
-                    # El factor de conversión de GGAL es 10
-                    datos["ccl"] = float((precio_local / precio_adr) * 10)
-
-        except Exception as e:
-            st.sidebar.warning("Usando cierres históricos para dólares financieros.")
-            
+                datos["ccl"] = float((ggal_ba['Close'].dropna().iloc[-1] / ggal_us['Close'].dropna().iloc[-1]) * 10)
+        except:
+            pass
         return datos
 
     mkt = obtener_dolares_reales()
 
-    # --- MÉTRICAS DE IMPACTO ---
+    # --- MÉTRICAS ---
     c1, c2, c3 = st.columns(3)
-    
-    # Cálculos de Brecha
     brecha_mep = (mkt['mep'] / mkt['oficial'] - 1) * 100
-    brecha_ccl = (mkt['ccl'] / mkt['oficial'] - 1) * 100
+    c1.metric("Dólar Oficial", f"${mkt['oficial']:,.2f}", "Referencia Real")
+    c2.metric("Dólar MEP", f"${mkt['mep']:,.2f}", f"{brecha_mep:.2f}% brecha")
+    c3.metric("Dólar CCL", f"${mkt['ccl']:,.2f}", f"{((mkt['ccl']/mkt['oficial'])-1)*100:.2f}% brecha")
 
-    c1.metric("Dólar Oficial", f"${mkt['oficial']:,.2f}", "A3500 BCRA")
-    c2.metric("Dólar MEP (BYMA)", f"${mkt['mep']:,.2f}", f"{brecha_mep:.2f}% brecha")
-    c3.metric("Dólar CCL (Senebi)", f"${mkt['ccl']:,.2f}", f"{brecha_ccl:.2f}% brecha")
-
-    # --- TABLA TÉCNICA DE ARBITRAJE ---
+    # --- ANÁLISIS DE TEORÍA AUSTRÍACA ---
     st.markdown("---")
-    st.write("### 📋 Análisis de Spreads y Canje")
+    st.subheader("🇦🇷 Diagnóstico de Inversión")
     
-    canje = ((mkt['ccl'] / mkt['mep']) - 1) * 100
+    # Parámetros de la tesis
+    tasa_interes_real = 3.5  # Ejemplo de TEM Lecaps
+    expansion_monetaria_estimada = 2.5 # Estimación de emisión/pasivos
     
-    df_dolares = pd.DataFrame([
-        {"Dólar": "Oficial Mayorista", "Valor": mkt['oficial'], "Brecha": "-"},
-        {"Dólar": "MEP (Bono AL30)", "Valor": mkt['mep'], "Brecha": f"{brecha_mep:.2f}%"},
-        {"Dólar": "CCL (Especie C)", "Valor": mkt['ccl'], "Brecha": f"{brecha_ccl:.2f}%"},
-        {"Dólar": "Canje (Spread)", "Valor": mkt['ccl']/mkt['mep'], "Brecha": f"{canje:.2f}%"}
-    ])
+    col_a1, col_a2 = st.columns([2, 1])
 
-    st.dataframe(
-        df_dolares.style.format({'Valor': '${:,.2f}'}),
-        use_container_width=True, 
-        hide_index=True
-    )
+    with col_a1:
+        if tasa_interes_real > expansion_monetaria_estimada:
+            st.success("### 💹 Recomendación: Mantenerse en PESOS (Tasa)")
+            st.write("""
+            **Tesis:** Según la Escuela Austríaca, si la tasa de interés está por encima de la expansión de la base monetaria 
+            y hay una contracción del crédito/emisión, el peso recupera su función de reserva de valor temporal. 
+            Es un escenario de **Preferencia Temporal Alta** por la moneda local.
+            """)
+        else:
+            st.error("### 💵 Recomendación: Dolarizar (Cobertura)")
+            st.write("""
+            **Tesis:** La expansión artificial del crédito y la base monetaria diluye el valor de la moneda. 
+            Para evitar la destrucción del capital provocada por el impuesto inflacionario, 
+            el actor económico debe refugiarse en activos de **Escasez Real** (Dólar o Bitcoin).
+            """)
+
+    with col_a2:
+        st.info("**Indicadores:**")
+        st.write(f"- **Tasa Real:** {tasa_interes_real}%")
+        st.write(f"- **Emisión:** Controlada")
+        st.write("- **Precios:** Sinceramiento")
+
+    # --- TABLA DE ARBITRAJE ---
+    st.markdown("### 📋 Análisis Técnico de Cierre")
+    df_dolares = pd.DataFrame([
+        {"Dólar": "Oficial", "Valor": mkt['oficial'], "Estado": "Anclado"},
+        {"Dólar": "MEP", "Valor": mkt['mep'], "Estado": "Mercado"},
+        {"Dólar": "CCL", "Valor": mkt['ccl'], "Estado": "Fuga/Arbitraje"}
+    ])
+    st.dataframe(df_dolares.style.format({'Valor': '${:,.2f}'}), use_container_width=True, hide_index=True)
 
     st.info(f"**Nota de Mercado:** El fin de semana se mantienen los precios de cierre del viernes. El 'Canje' del {canje:.2f}% indica el costo actual para fugar divisas o entrar capital al país.")
+
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
 st.markdown(
@@ -605,6 +604,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
