@@ -28,7 +28,6 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 # Definición de pestañas
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
-# --- PESTAÑA 1: ACCIONES CON TODAS LAS EMPRESAS ---
 with tab1:
     st.subheader("📊 Monitor de Valuación y Tendencia: Merval & USA")
 
@@ -47,125 +46,111 @@ with tab1:
     @st.cache_data(ttl=600)
     def obtener_analisis_profundo(lista_tickers):
         data_resumen = []
-        df_hist = yf.download(lista_tickers, period="2y", interval="1d")['Close']
         for t in lista_tickers:
             try:
-                ticker_obj = yf.Ticker(t)
-                info = ticker_obj.info
-                serie = df_hist[t].dropna()
-                if not serie.empty:
-                    precio_actual = serie.iloc[-1]
-                    precio_ayer = serie.iloc[-2]
+                # Descarga individual para mayor estabilidad
+                tk_obj = yf.Ticker(t)
+                hist = tk_obj.history(period="2y")
+                
+                if not hist.empty and len(hist) > 1:
+                    precio_actual = hist['Close'].iloc[-1]
+                    precio_ayer = hist['Close'].iloc[-2]
                     var_diaria = ((precio_actual / precio_ayer) - 1) * 100
-                    sma_200 = serie.rolling(200).mean().iloc[-1]
-                    dist_sma200 = ((precio_actual / sma_200) - 1) * 100
-                    tendencia_largo = "📈 BULL" if precio_actual > sma_200 else "📉 BEAR"
+                    
+                    # Media Móvil 200d
+                    if len(hist) >= 200:
+                        sma_200 = hist['Close'].rolling(window=200).mean().iloc[-1]
+                        dist_sma200 = ((precio_actual / sma_200) - 1) * 100
+                        tendencia_largo = "📈 BULL" if precio_actual > sma_200 else "📉 BEAR"
+                    else:
+                        dist_sma200 = 0
+                        tendencia_largo = "⌛ S/D"
+
+                    info = tk_obj.info
                     per = info.get('trailingPE', 0)
                     pb = info.get('priceToBook', 0)
                     mkt_cap = info.get('marketCap', 0) / 1e9 
+
                     data_resumen.append({
-                        'Activo': tickers_dict[t], 'Ticker': t, 'Precio': round(precio_actual, 2),
-                        'Var %': round(var_diaria, 2), 'PER': round(per, 2) if per and per > 0 else "N/A",
-                        'P/B': round(pb, 2) if pb and pb > 0 else "N/A", 'Tendencia 200d': tendencia_largo,
-                        'Dist. SMA200': f"{dist_sma200:.1f}%", 'Mkt Cap (Bn)': f"{mkt_cap:.2f}"
+                        'Activo': tickers_dict[t], 
+                        'Ticker': t, 
+                        'Precio': round(precio_actual, 2),
+                        'Var %': round(var_diaria, 2), 
+                        'PER': round(per, 2) if per and per > 0 else "N/A",
+                        'P/B': round(pb, 2) if pb and pb > 0 else "N/A", 
+                        'Tendencia 200d': tendencia_largo,
+                        'Dist. SMA200': f"{dist_sma200:.1f}%", 
+                        'Mkt Cap (Bn)': f"{mkt_cap:.2f}"
                     })
-            except: continue
+            except Exception as e:
+                continue
         return pd.DataFrame(data_resumen)
 
     df_final_pro = obtener_analisis_profundo(list(tickers_dict.keys()))
 
     if not df_final_pro.empty:
-        # Buscador y Tabla Principal
         busqueda = st.text_input("🔍 Buscar activo...")
         df_filtrada = df_final_pro.copy()
         if busqueda:
             df_filtrada = df_final_pro[df_final_pro['Activo'].str.contains(busqueda, case=False) | df_final_pro['Ticker'].str.contains(busqueda, case=False)]
 
-        def style_positive_negative(val):
-            if isinstance(val, (int, float)):
-                return f'color: {"#27ae60" if val > 0 else "#e74c3c"}; font-weight: bold'
-            return ''
+        # Estilización Segura
+        def style_var(val):
+            color = "#27ae60" if val > 0 else "#e74c3c"
+            return f'color: {color}; font-weight: bold'
 
-        st.dataframe(df_filtrada.style.applymap(style_positive_negative, subset=['Var %'])
-                     .applymap(lambda v: f'background-color: {"#2ecc71" if "BULL" in v else "#e74c3c"}; color: white; font-weight: bold', subset=['Tendencia 200d']),
-                     use_container_width=True, hide_index=True)
+        st.dataframe(
+            df_filtrada.style.applymap(style_var, subset=['Var %']),
+            use_container_width=True, 
+            hide_index=True
+        )
 
-       # --- SECCIÓN DE BALANCES TRIMESTRALES 2024 ---
+        # --- SECCIÓN DE BALANCES ---
         st.markdown("---")
-        st.subheader(f"📊 Reporte de Performance 2024")
-        
+        st.subheader("📊 Reporte de Performance Reciente")
         accion_sel = st.selectbox("📈 Seleccione activo para visualizar resultados:", df_final_pro['Ticker'].tolist())
-        
+
         @st.cache_data(ttl=3600)
         def obtener_balances_pro(ticker_str):
             try:
                 tk = yf.Ticker(ticker_str)
                 bal = tk.quarterly_financials.T
-                bal_2024 = bal[bal.index.year == 2024].sort_index()
-                if bal_2024.empty: return None
+                if bal.empty: return None
+                
+                # Tomamos los últimos 4 trimestres disponibles (no solo 2024)
+                bal_reciente = bal.head(4).sort_index()
                 
                 return pd.DataFrame({
-                    'Trimestre': bal_2024.index.strftime('Q%Q %Y'),
-                    'Ingresos': bal_2024.get('Total Revenue', 0),
-                    'EBITDA': bal_2024.get('Ebitda', bal_2024.get('Operating Income', 0)),
-                    'Ganancia Neta': bal_2024.get('Net Income', 0)
+                    'Trimestre': bal_reciente.index.strftime('%b %Y'),
+                    'Ingresos': bal_reciente.get('Total Revenue', 0),
+                    'EBITDA': bal_reciente.get('Ebitda', bal_reciente.get('Operating Income', 0)),
+                    'Ganancia Neta': bal_reciente.get('Net Income', 0)
                 })
             except: return None
 
         df_bal = obtener_balances_pro(accion_sel)
         
         if df_bal is not None:
-            # Función para formatear etiquetas (M para millones, B para billones)
-            def format_val(val):
-                if abs(val) >= 1e12: return f'${val/1e12:.2f}T'
-                if abs(val) >= 1e9: return f'${val/1e9:.2f}B'
-                if abs(val) >= 1e6: return f'${val/1e6:.1f}M'
-                return f'${val:,.0f}'
-
+            # Gráfico de Barras con Plotly
+            
             fig_bal = go.Figure()
-
-            # Configuración de barras con diseño minimalista
-            # Colores: Azul profundo (Ingresos), Dorado Mate (EBITDA), Esmeralda (Ganancia)
             metrics = [
-                {'col': 'Ingresos', 'name': 'Ventas Totales', 'color': '#1f77b4'},
-                {'col': 'EBITDA', 'name': 'EBITDA (Eficiencia)', 'color': '#ff7f0e'},
-                {'col': 'Ganancia Neta', 'name': 'Resultado Neto', 'color': '#2ca02c'}
+                {'col': 'Ingresos', 'name': 'Ventas', 'color': '#1f77b4'},
+                {'col': 'EBITDA', 'name': 'EBITDA', 'color': '#ff7f0e'},
+                {'col': 'Ganancia Neta', 'name': 'Resultado', 'color': '#2ca02c'}
             ]
 
             for m in metrics:
                 fig_bal.add_trace(go.Bar(
-                    x=df_bal['Trimestre'],
-                    y=df_bal[m['col']],
-                    name=m['name'],
-                    marker=dict(color=m['color'], line=dict(width=0)),
-                    text=df_bal[m['col']].apply(format_val),
-                    textposition='outside',
-                    cliponaxis=False # Evita que se corten las etiquetas superiores
+                    x=df_bal['Trimestre'], y=df_bal[m['col']],
+                    name=m['name'], marker_color=m['color']
                 ))
 
-            fig_bal.update_layout(
-                title=dict(text=f"ESTADOS FINANCIEROS 2024: {accion_sel}", font=dict(size=20, color="white")),
-                template="plotly_dark",
-                barmode='group',
-                bargap=0.15, 
-                bargroupgap=0.1,
-                height=550,
-                plot_bgcolor="rgba(0,0,0,0)", # Fondo transparente
-                paper_bgcolor="rgba(0,0,0,0)",
-                yaxis=dict(showticklabels=False, showgrid=True, gridcolor="rgba(255,255,255,0.1)"), # Ocultamos eje Y para mayor limpieza
-                xaxis=dict(showgrid=False),
-                legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5),
-                margin=dict(t=120, b=50, l=10, r=10)
-            )
-            
+            fig_bal.update_layout(template="plotly_dark", barmode='group', height=400)
             st.plotly_chart(fig_bal, use_container_width=True)
-            
-            # Tabla estilizada debajo
-            st.markdown("#### Detalle Numérico")
-            st.table(df_bal.set_index('Trimestre').applymap(format_val))
-            
+            st.table(df_bal)
         else:
-            st.info(f"🔍 Buscando reportes... Yahoo Finance aún no ha procesado los datos de 2024 para {accion_sel}.")
+            st.info("No hay datos de balances recientes disponibles para este ticker.")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Inflación 2025-2026")
@@ -614,6 +599,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
