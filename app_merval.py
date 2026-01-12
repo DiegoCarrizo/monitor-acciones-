@@ -41,96 +41,94 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("📊 Monitor de Mercado & Análisis TradingView")
+    st.subheader("🏛️ Terminal de Valuación & Target Prices")
 
-    # 1. BOTÓN DE ACTUALIZACIÓN MANUAL (Evita actualizaciones automáticas molestas)
-    if st.button('🔄 Refrescar Datos de Mercado'):
+    # 1. ACTUALIZACIÓN MANUAL
+    col_btn, col_empty = st.columns([1, 4])
+    if col_btn.button('🔄 Sincronizar Terminal'):
         st.cache_data.clear()
         st.rerun()
 
-    # 2. LISTA DE TICKERS LÍDERES
-    tickers_dict = {
-        'ALUA.BA': '🇦🇷 Aluar', 'BBAR.BA': '🇦🇷 BBVA Francés', 'BMA.BA': '🇦🇷 Banco Macro',
-        'BYMA.BA': '🇦🇷 BYMA', 'CEPU.BA': '🇦🇷 Central Puerto', 'COME.BA': '🇦🇷 Comercial Plata',
-        'EDN.BA': '🇦🇷 Edenor', 'GGAL.BA': '🇦🇷 Grupo Galicia', 'LOMA.BA': '🇦🇷 Loma Negra',
-        'METR.BA': '🇦🇷 Metrogas', 'PAMP.BA': '🇦🇷 Pampa Energía', 'SUPV.BA': '🇦🇷 Supervielle',
-        'TECO2.BA': '🇦🇷 Telecom', 'TGNO4.BA': '🇦🇷 TGN', 'TGSU2.BA': '🇦🇷 TGS',
-        'TRAN.BA': '🇦🇷 Transener', 'TXAR.BA': '🇦🇷 Ternium', 'YPFD.BA': '🇦🇷 YPF',
-        'AAPL': '🇺🇸 Apple', 'AMZN': '🇺🇸 Amazon', 'MSFT': '🇺🇸 Microsoft', 'NVDA': '🇺🇸 NVIDIA',
-        'TSLA': '🇺🇸 Tesla', 'KO': '🇺🇸 Coca-Cola', 'MELI': '🇺🇸 Mercado Libre', 'GOLD': '🇺🇸 Barrick Gold'
-    }
-
+    # 2. PROCESAMIENTO DE DATOS QUANT
     @st.cache_data(ttl=3600)
-    def obtener_datos_manuales(lista_tickers):
-        data_resumen = []
-        for t in lista_tickers:
+    def obtener_datos_pro(lista):
+        res = []
+        for t in lista:
             try:
-                tk_obj = yf.Ticker(t, session=session)
-                hist = tk_obj.history(period="7d")
-                if not hist.empty and len(hist) > 1:
-                    p_actual = hist['Close'].iloc[-1]
-                    p_ayer = hist['Close'].iloc[-2]
-                    var = ((p_actual / p_ayer) - 1) * 100
-                    info = tk_obj.info
-                    data_resumen.append({
-                        'Activo': tickers_dict[t], 
-                        'Ticker': t.replace(".BA", ""), 
-                        'Precio': round(float(p_actual), 2), 
-                        'Var %': round(float(var), 2),
-                        'P/B': info.get('priceToBook', 'N/A')
-                    })
-            except:
-                continue
-        return pd.DataFrame(data_resumen)
+                tk = yf.Ticker(t, session=session)
+                h = tk.history(period="7d")
+                if h.empty: continue
+                
+                p_actual = h['Close'].iloc[-1]
+                info = tk.info
+                
+                # Valuación
+                per = info.get('trailingPE', 0)
+                pb = info.get('priceToBook', 0)
+                ma200 = info.get('twoHundredDayAverage', p_actual)
+                
+                # Precios Objetivo (Target Prices)
+                target = info.get('targetMeanPrice', 0)
+                upside = ((target / p_actual) - 1) * 100 if target else 0
+                
+                # Lógica de Valuación (Austrian/Value Style)
+                if pb == 0: val_status = "S/D"
+                elif pb < 1.0: val_status = "🟢 BARATO"
+                elif 1.0 <= pb <= 2.5: val_status = "🟡 NEUTRO"
+                else: val_status = "🔴 CARO"
 
-    df_acciones = obtener_datos_manuales(list(tickers_dict.keys()))
+                res.append({
+                    "Ticker": t.replace(".BA", ""),
+                    "Nombre": tickers_dict[t],
+                    "Precio": round(p_actual, 2),
+                    "P/B": round(pb, 2) if pb else 0.0,
+                    "Target Price": f"${target:,.2f}" if target else "N/A",
+                    "Potencial %": round(upside, 1) if target else 0,
+                    "Tendencia": "📈 BULL" if p_actual > ma200 else "📉 BEAR",
+                    "Valuación": val_status
+                })
+            except: continue
+        return pd.DataFrame(res)
 
-    # 3. TABLA DE DATOS
-    if not df_acciones.empty:
+    df_quant = obtener_datos_pro(list(tickers_dict.keys()))
+
+    if not df_quant.empty:
+        # Tabla Principal Estilizada
         st.dataframe(
-            df_acciones.style.format({'Precio': '${:,.2f}', 'Var %': '{:,.2f}%'})
-            .applymap(lambda x: 'color: #27ae60; font-weight: bold' if isinstance(x, (int, float)) and x > 0 else 'color: #e74c3c; font-weight: bold', subset=['Var %']),
+            df_quant.style.applymap(lambda v: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "BARATO" in v else ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "CARO" in v else ''), subset=['Valuación'])
+            .applymap(lambda x: 'color: #27ae60; font-weight: bold' if x > 10 else 'color: #999', subset=['Potencial %'])
+            .format({'Precio': '${:,.2f}', 'Potencial %': '{:.1f}%'}),
             use_container_width=True, hide_index=True
         )
-    
+
     st.markdown("---")
 
-    # 4. INTEGRACIÓN DE TRADINGVIEW
-    st.subheader("🔍 Gráfico Técnico Interactivo")
+    # 3. TRADINGVIEW GAUGE + CONSENSO
+    col_g1, col_g2 = st.columns([3, 2])
     
-    accion_para_grafico = st.selectbox("Seleccione el activo para analizar:", list(tickers_dict.keys()))
-    
-    # Formatear el símbolo para TradingView (Ej: BCBA:GGAL o NASDAQ:AAPL)
-    if ".BA" in accion_para_grafico:
-        tv_symbol = f"BCBA:{accion_para_grafico.replace('.BA', '')}"
-    else:
-        # Simplificación para USA, TradingView suele autodetectar o requiere EXCHANGE:SYMBOL
-        tv_symbol = accion_para_grafico
+    with col_g1:
+        st.subheader("🎯 Sentimiento Técnico")
+        sel = st.selectbox("Activo para análisis profundo:", list(tickers_dict.keys()))
+        tv_s = f"BCBA:{sel.replace('.BA','')}" if ".BA" in sel else sel
+        
+        tv_gauge = f"""
+        <div class="tradingview-widget-container">
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
+          {{
+            "interval": "1D", "width": "100%", "isTransparent": true, "height": 400,
+            "symbol": "{tv_s}", "showIntervalTabs": true, "displayMode": "single", "locale": "es", "theme": "dark"
+          }}
+          </script>
+        </div>"""
+        st.components.v1.html(tv_gauge, height=420)
 
-    # Iframe de TradingView con comillas triples cerradas correctamente
-    tradingview_widget = f"""
-    <div class="tradingview-widget-container" style="height:500px;">
-        <div id="tv_chart_container"></div>
-        <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-        <script type="text/javascript">
-        new TradingView.widget({{
-          "autosize": true,
-          "symbol": "{tv_symbol}",
-          "interval": "D",
-          "timezone": "America/Argentina/Buenos_Aires",
-          "theme": "dark",
-          "style": "1",
-          "locale": "es",
-          "toolbar_bg": "#f1f3f6",
-          "enable_publishing": false,
-          "hide_side_toolbar": false,
-          "allow_symbol_change": true,
-          "container_id": "tv_chart_container"
-        }});
-        </script>
-    </div>
-    """
-    st.components.v1.html(tradingview_widget, height=520)
+    with col_g2:
+        st.subheader("💡 Opinión de Analistas")
+        # Aquí mostramos un resumen rápido del consenso
+        st.info(f"Análisis para **{sel}**")
+        st.write("El panel superior muestra el **Potencial %** basado en el precio objetivo promedio de los bancos de inversión.")
+        st.markdown(f"**Ticker:** `{sel}`")
+        st.warning("Recuerde: La valuación 'BARATO' (P/B < 1) sugiere que la empresa cotiza por debajo de su valor de reposición de activos.")
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
     st.header("📉 Inflación 2025-2026")
@@ -579,6 +577,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
