@@ -44,7 +44,6 @@ with tab1:
     st.subheader("🏛️ Terminal de Valuación Quant")
 
     # 1. DICCIONARIO DE BALANCES (EPS y Valor Libros por acción)
-    # Estos valores son la base del cálculo y no dependen de la API.
     balances_fijos = {
         'ALUA.BA': {'EPS': 142.10, 'BV': 980.50},
         'GGAL.BA': {'EPS': 310.40, 'BV': 1350.20},
@@ -57,71 +56,79 @@ with tab1:
         'NVDA': {'EPS': 1.80, 'BV': 2.32}
     }
 
-    # 2. LÓGICA DE PERSISTENCIA (SESSION STATE)
-    # Si es la primera vez que se abre o si se presiona el botón, se calculan los datos.
+    # Inicializar el estado de la sesión
     if 'df_valuacion' not in st.session_state:
         st.session_state.df_valuacion = None
 
-    # BOTÓN DE ACTUALIZACIÓN
+    # BOTÓN DE ACTUALIZACIÓN (Único activador de datos)
     if st.button('🔄 Actualizar y Recalcular Datos'):
-        with st.spinner('Calculando PER y P/B con precios en vivo...'):
+        with st.spinner('Obteniendo precios y calculando ratios...'):
             resultados = []
             for t, b in balances_fijos.items():
                 try:
                     tk = yf.Ticker(t, session=session)
-                    # Traemos el precio más reciente
                     h = tk.history(period="1d")
                     if h.empty: continue
-                    precio = h['Close'].iloc[-1]
+                    precio = float(h['Close'].iloc[-1])
                     
-                    # CÁLCULO DE RATIOS
+                    # CÁLCULOS MATEMÁTICOS DIRECTOS
                     per = precio / b['EPS']
                     pb = precio / b['BV']
                     
+                    # Determinación de estado (Sin tildes para evitar KeyError)
+                    estado = "BARATO" if pb < 1.0 else "NEUTRO"
+                    if ".BA" not in t: estado = "USA MKT"
+                    
                     resultados.append({
                         "Ticker": t.replace(".BA", ""),
-                        "Precio": round(float(precio), 2),
-                        "PER (Años)": round(float(per), 1),
-                        "P/B (Libros)": round(float(pb), 2),
-                        "Valuación": "🟢 BARATO" if pb < 1.0 else "🟡 NEUTRO"
+                        "Precio": precio,
+                        "PER": per,
+                        "PB": pb,
+                        "Status": estado
                     })
-                except: continue
+                except:
+                    continue
             
-            st.session_state.df_valuacion = pd.DataFrame(resultados)
-            st.success("¡Datos actualizados correctamente!")
+            if resultados:
+                st.session_state.df_valuacion = pd.DataFrame(resultados)
+                st.success("¡Datos actualizados!")
 
-    # 3. MOSTRAR LA TABLA (Si existen datos en el estado de la sesión)
+    # 3. MOSTRAR TABLA (Si hay datos)
     if st.session_state.df_valuacion is not None:
+        # Aplicamos formato simple para evitar errores de Styles de Pandas
+        df_mostrar = st.session_state.df_valuacion.copy()
+        
         st.dataframe(
-            st.session_state.df_valuacion.style.format({
+            df_mostrar.style.format({
                 'Precio': '${:,.2f}',
-                'PER (Años)': '{:.1f}',
-                'P/B (Libros)': '{:.2f}'
-            }).applymap(
-                lambda x: 'color: #adff2f; font-weight: bold' if x == "🟢 BARATO" else '',
-                subset=['Valuación']
+                'PER': '{:.1f}x',
+                'PB': '{:.2f}x'
+            }).map(
+                lambda x: 'color: #adff2f; font-weight: bold' if x == "BARATO" else '',
+                subset=['Status']
             ),
-            use_container_width=True, hide_index=True
+            use_container_width=True, 
+            hide_index=True
         )
     else:
-        st.warning("Presione el botón superior para cargar los datos por primera vez.")
+        st.info("Pulse el botón para cargar los precios y calcular los ratios PER y P/B.")
 
-    # 4. GLOSARIO RESUMIDO
     st.markdown("---")
-    st.info("""
-    **Guía Rápida de Inversión:**
-    - **PER:** Años que tarda la empresa en devolver tu inversión vía ganancias.
-    - **P/B:** Relación Precio / Valor contable. Si es menor a 1, la empresa vale menos en bolsa que sus activos físicos.
+
+    # 4. EXPLICACIÓN DE VALOR (Escuela Austríaca)
+    
+    st.markdown("""
+    **Interpretación de Ratios:**
+    * **PER (Price to Earnings):** Indica cuántos años de utilidades pagas por la acción.
+    * **P/B (Price to Book):** Si es < 1, la empresa cotiza por debajo de su valor contable (descuento sobre activos).
     """)
 
-    # 5. INTEGRACIÓN TRADINGVIEW
-    st.subheader("🎯 Análisis Técnico TradingView")
-    sel_acc = st.selectbox("Seleccione activo para el termómetro:", list(balances_fijos.keys()))
-    
-    # Manejo de símbolos para TradingView
+    # 5. TRADINGVIEW GAUGE
+    st.subheader("🎯 Sentimiento Técnico")
+    sel_acc = st.selectbox("Seleccione activo para el análisis técnico:", list(balances_fijos.keys()))
     tv_symbol = f"BCBA:{sel_acc.replace('.BA','')}" if ".BA" in sel_acc else sel_acc
     
-    # Widget con doble llave {{ }} para evitar SyntaxError
+    # Widget corregido con doble llave para evitar SyntaxError
     tv_gauge_html = f"""
     <div style="height:380px;">
         <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-technical-analysis.js" async>
@@ -589,6 +596,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
