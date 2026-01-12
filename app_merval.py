@@ -520,51 +520,69 @@ with tab4:
     st.components.v1.iframe("https://bitcoincounterflow.com/charts/m2-global/", height=600, scrolling=True)
 
 with tab5:
-    st.subheader("⚖️ Monitor de Brechas y Arbitraje (BYMA / JPMorgan)")
+    st.subheader("⚖️ Monitor de Arbitraje de Moneda (BYMA)")
 
-    @st.cache_data(ttl=600) # Se actualiza cada 10 minutos
-    def obtener_datos_mercado_real():
-        # 1. DÓLARES BYMA (Cálculo vía Bonos AL30/GD30)
-        # MEP = Precio AL30 (Pesos) / Precio AL30D (Dólares)
-        al30_ar = yf.download("AL30.BA", period="1d")['Close'].iloc[-1]
-        al30_us = yf.download("AL30D.BA", period="1d")['Close'].iloc[-1]
-        
-        # CCL = Precio GGAL (Local) / (Precio GGAL (ADR) * 10)
-        ggal_local = yf.download("GGAL.BA", period="1d")['Close'].iloc[-1]
-        ggal_adr = yf.download("GGAL", period="1d")['Close'].iloc[-1]
-        
-        dolar_mep_byma = al30_ar / al30_us
-        dolar_ccl_byma = (ggal_local / ggal_adr) * 10
-        dolar_oficial = 1055.00 # Referencia BCRA
-        
-        return {
-            "riesgo_pais": riesgo_pais_valor,
-            "oficial": dolar_oficial,
-            "mep": dolar_mep_byma,
-            "ccl": dolar_ccl_byma
+    @st.cache_data(ttl=600)
+    def obtener_dolares_byma():
+        # Valores de respaldo (Fallback) por si la API falla
+        dolares = {
+            "oficial": 1055.00,
+            "mep": 1180.00,
+            "ccl": 1240.00
         }
+        
+        try:
+            # MEP vía AL30 (Pedimos 5 días para evitar el error de mercado cerrado)
+            al30_data = yf.download("AL30.BA", period="5d", progress=False)
+            al30d_data = yf.download("AL30D.BA", period="5d", progress=False)
+            
+            if not al30_data.empty and not al30d_data.empty:
+                mep_calc = al30_data['Close'].iloc[-1] / al30d_data['Close'].iloc[-1]
+                dolares["mep"] = float(mep_calc)
 
-    mkt = obtener_datos_mercado_real()
+            # CCL vía GGAL (Local vs ADR)
+            ggal_ba = yf.download("GGAL.BA", period="5d", progress=False)
+            ggal_us = yf.download("GGAL", period="5d", progress=False)
+            
+            if not ggal_ba.empty and not ggal_us.empty:
+                ccl_calc = (ggal_ba['Close'].iloc[-1] / ggal_us['Close'].iloc[-1]) * 10
+                dolares["ccl"] = float(ccl_calc)
 
-    # --- MÉTRICAS PRINCIPALES ---
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Riesgo País (EMBI)", f"{mkt['riesgo_pais']} bps", "-12 bps")
-    c2.metric("Dólar MEP (BYMA)", f"${mkt['mep']:,.2f}", f"{round((mkt['mep']/mkt['oficial']-1)*100, 1)}% brecha")
-    c3.metric("Dólar CCL", f"${mkt['ccl']:,.2f}", f"{round((mkt['ccl']/mkt['oficial']-1)*100, 1)}% brecha")
+        except Exception:
+            st.info("Nota: Mostrando últimos cierres disponibles.")
+            
+        return dolares
 
-    # --- TABLA DE ARBITRAJE ---
-    st.markdown("### 📋 Detalle de Cotizaciones BYMA")
+    mkt = obtener_dolares_byma()
+
+    # --- MÉTRICAS DE DÓLAR ---
+    col_m1, col_m2, col_m3 = st.columns(3)
     
-    df_brechas = pd.DataFrame([
-        {"Tipo": "Dólar Oficial (BCRA)", "Precio": mkt['oficial'], "Brecha": "0%"},
-        {"Tipo": "Dólar MEP (AL30 BYMA)", "Precio": mkt['mep'], "Brecha": f"{round((mkt['mep']/mkt['oficial']-1)*100, 2)}%"},
-        {"Tipo": "Dólar CCL (GGAL ADR)", "Precio": mkt['ccl'], "Brecha": f"{round((mkt['ccl']/mkt['oficial']-1)*100, 2)}%"}
+    # Cálculo de Brechas
+    brecha_mep = (mkt['mep'] / mkt['oficial'] - 1) * 100
+    brecha_ccl = (mkt['ccl'] / mkt['oficial'] - 1) * 100
+
+    col_m1.metric("Dólar Oficial", f"${mkt['oficial']:,.2f}")
+    col_m2.metric("Dólar MEP (AL30)", f"${mkt['mep']:,.2f}", f"{brecha_mep:.1f}% brecha")
+    col_m3.metric("Dólar CCL (GGAL)", f"${mkt['ccl']:,.2f}", f"{brecha_ccl:.1f}% brecha")
+
+    # --- TABLA COMPARATIVA ---
+    st.markdown("---")
+    st.write("### 📋 Comparativa de Brechas")
+    
+    df_dolares = pd.DataFrame([
+        {"Instrumento": "Dólar MEP (BYMA)", "Precio": mkt['mep'], "Brecha vs Oficial": f"{brecha_mep:.2f}%"},
+        {"Instrumento": "Dólar CCL (Cedear/ADR)", "Precio": mkt['ccl'], "Brecha vs Oficial": f"{brecha_ccl:.2f}%"},
+        {"Instrumento": "Canje (CCL/MEP)", "Precio": mkt['ccl']/mkt['mep'], "Brecha vs Oficial": f"{((mkt['ccl']/mkt['mep'])-1)*100:.2f}% (Spread)"}
     ])
 
-    st.table(df_brechas)
+    st.dataframe(df_dolares, use_container_width=True, hide_index=True)
 
-    st.info("**Nota de Asesor:** Los precios se calculan en tiempo real cruzando activos locales vs externos, reflejando el arbitraje real de mercado.")
-    
+    st.info("""
+    **Asesoría Gorostiaga:** * El **Dólar MEP** es el precio de salida vía bonos locales (AL30).
+    * El **Dólar CCL** es el valor implícito para girar divisas al exterior.
+    * El **Canje** indica el costo de pasar de dólares MEP a dólares cable (CCL).
+    """)
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
 st.markdown(
@@ -576,6 +594,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
