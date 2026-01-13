@@ -575,6 +575,61 @@ with tab5:
         estado_mkt = "Sinceramiento" if brecha_mep < 20 else "Distorsión"
         st.write(f"- **Estado:** {estado_mkt}")
 
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import streamlit as st
+
+def proyectar_merval():
+    st.subheader("🚀 Proyección Merval: Objetivo 2026")
+    
+    precio_actual = 3076946  # Valor del cierre en tu imagen
+    
+    # Escenario 1: Conservador (Consolidación y subida moderada)
+    # Basado en la proyección de la línea de tendencia inferior del canal
+    target_1 = 3475415  # Nivel marcado en tu gráfico de TradingView
+    
+    # Escenario 2: Optimista (Rally por compresión de spreads a 500pb)
+    # Basado en el mástil del movimiento previo (proyección de Fibonacci)
+    target_2 = 3938521  # Máximo proyectado en tu gráfico
+    
+    col1, col2 = st.columns(2)
+    col1.metric("Target Escenario Conservador", f"{target_1:,.0f}", "+13%")
+    col2.metric("Target Escenario Bull", f"{target_2:,.0f}", "+28%")
+
+    # Simulación visual de trayectorias
+    fechas_proy = pd.date_range(start='2026-01-12', periods=90)
+    
+    # Generación de curvas
+    camino_1 = np.linspace(precio_actual, target_1, 90) + np.random.normal(0, 30000, 90)
+    camino_2 = np.linspace(precio_actual, target_2, 90) + np.random.normal(0, 45000, 90)
+    
+    fig_proy = go.Figure()
+    
+    # Trayectoria Conservadora
+    fig_proy.add_trace(go.Scatter(x=fechas_proy, y=camino_1, name='Escenario Base',
+                                 line=dict(color='#00d1ff', width=2, dash='dot')))
+    
+    # Trayectoria Bull
+    fig_proy.add_trace(go.Scatter(x=fechas_proy, y=camino_2, name='Escenario Bull (Riesgo < 500pb)',
+                                 line=dict(color='#adff2f', width=3)))
+
+    fig_proy.update_layout(
+        title="Proyección Estimada Q1-Q2 2026",
+        template="plotly_dark",
+        yaxis_title="Puntos Merval",
+        hovermode="x unified"
+    )
+    
+    st.plotly_chart(fig_proy, use_container_width=True)
+
+    st.success(f"""
+    **Tesis de Inversión:** Con el Riesgo País en **573 pb**, el Merval deja de ser una apuesta de 'supervivencia' para ser una de 'crecimiento'. 
+    La zona de **3.181.766** (marcada en tu gráfico) es la última gran resistencia. Una vez superada, el camino al Target 2 es inminente.
+    """)
+
+proyectar_merval()
+
     # --- TABLA DE CIERRE ---
     st.markdown("### 📋 Detalle Técnico al Cierre")
     df_dolares = pd.DataFrame([
@@ -596,6 +651,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
