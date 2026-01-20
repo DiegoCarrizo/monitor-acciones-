@@ -104,24 +104,34 @@ if not df_editado.empty:
     df_editado['P/B'] = df_editado['Precio_Arg'] / df_editado['Libros_Accion'].replace(0, np.nan)
     
     # Función de Valuación (Ajustada: USA suele tener múltiplos más altos)
+    # Esta es la función que estaba fallando por los espacios
     def categorizar_valor(fila):
-    # Estas líneas DEBEN tener 4 espacios de sangría respecto al 'def'
-    pb = fila['P/B']
-    ticker = str(fila['Ticker'])
-    
-    # Lista de activos que se valúan por crecimiento (Growth) y no por activos físicos
-    tech_growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST']
-    
-    if any(t in ticker for t in tech_growth):
-        # Umbral más alto para tecnológicas (como tu análisis de NFLX)
-        if pb < 15.0: return "🟢 OPORTUNIDAD" 
-        elif pb <= 25.0: return "🟡 NEUTRO"
-        else: return "🔴 EXCESIVO"
-    else:
-        # Lógica estricta para Argentina (Valor Contable)
-        if pb < 1.0: return "🟢 BARATO"
-        elif pb <= 2.2: return "🟡 NEUTRO"
-        else: return "🔴 CARO"
+        # Todo este bloque debe tener 4 espacios de sangría (1 Tab)
+        pb = fila['P/B']
+        ticker = str(fila['Ticker'])
+        
+        # Lista de activos que se valúan por crecimiento (Growth)
+        tech_growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST']
+        
+        if any(t in ticker for t in tech_growth):
+            # Lógica para USA/Growth (NFLX entra aquí con su P/B de 14.3x)
+            if pb < 15.0: 
+                return "🟢 OPORTUNIDAD" 
+            elif pb <= 25.0: 
+                return "🟡 NEUTRO"
+            else: 
+                return "🔴 EXCESIVO"
+        else:
+            # Lógica para Argentina/Value
+            if pb < 1.0: 
+                return "🟢 BARATO"
+            elif pb <= 2.2: 
+                return "🟡 NEUTRO"
+            else: 
+                return "🔴 CARO"
+
+    # Esta línea vuelve al nivel anterior (fuera de la función)
+    df_calc['Valuacion'] = df_calc.apply(categorizar_valor, axis=1)
     
     df_editado['Valuacion'] = df_editado.apply(categorizar_valor, axis=1)
 
@@ -756,6 +766,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
