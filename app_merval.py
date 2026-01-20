@@ -85,44 +85,62 @@ if 'df_quant' not in st.session_state:
     ]
     st.session_state.df_quant = pd.DataFrame(datos)
 
-    # 2. EDITOR DE DATOS (Aquí sucede la magia)
-    # El usuario edita Precio, Ganancia o Libros y el resto se calcula
-    df_editado = st.data_editor(
-        st.session_state.df_quant, 
-        num_rows="dynamic", 
-        key="editor_manual",
-        use_container_width=True
+    # 2. EDITOR DE DATOS (Consola de Carga Manual)
+st.markdown("### 📥 1. Consola de Entrada de Datos")
+st.info("Modificá los Precios, Ganancias o Valor Libros en la tabla. El sistema recalculará los ratios al instante.")
+
+df_editado = st.data_editor(
+    st.session_state.df_quant, 
+    num_rows="dynamic", 
+    key="editor_valuacion_total",
+    use_container_width=True
+)
+
+# 3. LÓGICA DE CÁLCULO Y VALUACIÓN
+if not df_editado.empty:
+    # Evitamos división por cero o valores nulos
+    df_editado['PER'] = df_editado['Precio_Arg'] / df_editado['Ganancia_Accion'].replace(0, np.nan)
+    df_editado['P/B'] = df_editado['Precio_Arg'] / df_editado['Libros_Accion'].replace(0, np.nan)
+    
+    # Función de Valuación (Ajustada: USA suele tener múltiplos más altos)
+    def categorizar_valor(fila):
+        pb = fila['P/B']
+        ticker = fila['Ticker']
+        # Lógica especial para Tech USA o Vista (crecimiento)
+        umbral_barato = 1.2 if ticker in ['VIST', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA'] else 1.0
+        
+        if pb < umbral_barato: return "🟢 BARATO"
+        elif pb <= 2.5: return "🟡 NEUTRO"
+        else: return "🔴 CARO"
+    
+    df_editado['Valuacion'] = df_editado.apply(categorizar_valor, axis=1)
+
+    st.markdown("---")
+    st.subheader("📊 2. Matriz de Valuación Resultante")
+    
+    # 
+
+    # 4. MOSTRAR TABLA DE RESULTADOS FINAL CON FORMATO
+    st.dataframe(
+        df_editado.style.format({
+            'Precio_Arg': '${:,.2f}',
+            'Ganancia_Accion': '{:,.2f}',
+            'Libros_Accion': '{:,.2f}',
+            'PER': '{:.1f}x',
+            'P/B': '{:.2f}x'
+        }).map(
+            lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "BARATO" in str(x) else 
+                      ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "CARO" in str(x) else ''),
+            subset=['Valuacion']
+        ),
+        use_container_width=True, 
+        hide_index=True
     )
 
-    # 3. LÓGICA DE CÁLCULO AUTOMÁTICO
-    if not df_editado.empty:
-        # Realizamos los cálculos matemáticos sobre las columnas manuales
-        df_editado['PER'] = df_editado['Precio_Arg'] / df_editado['Ganancia_Accion']
-        df_editado['P/B'] = df_editado['Precio_Arg'] / df_editado['Libros_Accion']
-        
-        # Función para determinar la valuación
-        def categorizar(pb):
-            if pb < 1.0: return "🟢 BARATO"
-            elif 1.0 <= pb <= 2.2: return "🟡 NEUTRO"
-            else: return "🔴 CARO"
-        
-        df_editado['Valuacion'] = df_editado['P/B'].apply(categorizar)
-
-        st.markdown("---")
-        st.subheader("📊 Resultado del Análisis de Valor")
-        
-        # 4. MOSTRAR TABLA DE RESULTADOS FINAL
-        st.dataframe(
-            df_editado.style.format({
-                'Precio_Arg': '${:,.2f}',
-                'PER': '{:.1f}x',
-                'P/B': '{:.2f}x'
-            }).map(
-                lambda x: 'color: #adff2f; font-weight: bold' if "BARATO" in str(x) else ('color: #ff4b4b' if "CARO" in str(x) else ''),
-                subset=['Valuacion']
-            ),
-            use_container_width=True, hide_index=True
-        )
+    # 5. RESUMEN DE OPORTUNIDADES
+    acciones_baratas = df_editado[df_editado['Valuacion'] == "🟢 BARATO"]['Ticker'].tolist()
+    if acciones_baratas:
+        st.success(f"**Oportunidades Detectadas (P/B bajo):** {', '.join(acciones_baratas)}")
 
     # 5. GLOSARIO RÁPIDO
     
@@ -728,6 +746,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
