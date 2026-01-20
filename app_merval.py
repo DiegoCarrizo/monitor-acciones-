@@ -42,114 +42,103 @@ st.title("🏛️ Monitor Gorostiaga Bursátil 2026 (Real-Time & BYMA)")
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026", "🏦 Tasas y Bonos", "🤖 Método Quant", "🇦🇷 Riesgo País Live"])
 
 with tab1:
-    st.subheader("🏛️ Consola de Valuación Gorostiaga")
-    st.info("Ingresá los datos manualmente en la tabla. El sistema calculará automáticamente el PER, P/B y la Valuación.")
+    st.subheader("🏛️ Terminal de Valuación Global")
+    st.info("Editá Precios, Ganancias o Libros. El sistema aplicará lógica diferenciada para Argentina y USA.")
 
-    # 1. DEFINICIÓN DE DATOS INICIALES (Incluye nuevas de AR y Vista)
-if 'df_quant' not in st.session_state:
-    datos = [
-        # --- ARGENTINA (Principales + Nuevas incorporaciones) ---
-        {"Ticker": "ALUA", "Precio_Arg": 950.0, "Ganancia_Accion": 142.1, "Libros_Accion": 980.5},
-        {"Ticker": "GGAL", "Precio_Arg": 5600.0, "Ganancia_Accion": 310.4, "Libros_Accion": 1350.2},
-        {"Ticker": "YPFD", "Precio_Arg": 28000.0, "Ganancia_Accion": 420.0, "Libros_Accion": 42000.0},
-        {"Ticker": "PAMP", "Precio_Arg": 3100.0, "Ganancia_Accion": 210.3, "Libros_Accion": 1680.0},
-        {"Ticker": "BMA", "Precio_Arg": 9200.0, "Ganancia_Accion": 450.2, "Libros_Accion": 2100.0},
-        {"Ticker": "BBAR", "Precio_Arg": 4800.0, "Ganancia_Accion": 220.5, "Libros_Accion": 1150.0},
-        {"Ticker": "CEPU", "Precio_Arg": 1250.0, "Ganancia_Accion": 115.0, "Libros_Accion": 1100.0},
-        {"Ticker": "TRAN", "Precio_Arg": 1850.0, "Ganancia_Accion": 95.0, "Libros_Accion": 850.0},
-        {"Ticker": "METR", "Precio_Arg": 1100.0, "Ganancia_Accion": 65.0, "Libros_Accion": 720.0},
-        
-        # --- USA: LAS 7 MAGNÍFICAS ---
-        {"Ticker": "AAPL", "Precio_Arg": 242.10, "Ganancia_Accion": 6.57, "Libros_Accion": 4.83},
-        {"Ticker": "MSFT", "Precio_Arg": 415.20, "Ganancia_Accion": 11.80, "Libros_Accion": 34.20},
-        {"Ticker": "GOOGL", "Precio_Arg": 188.40, "Ganancia_Accion": 7.54, "Libros_Accion": 26.15},
-        {"Ticker": "AMZN", "Precio_Arg": 210.15, "Ganancia_Accion": 4.25, "Libros_Accion": 20.40},
-        {"Ticker": "NVDA", "Precio_Arg": 135.80, "Ganancia_Accion": 1.80, "Libros_Accion": 2.35},
-        {"Ticker": "META", "Precio_Arg": 580.30, "Ganancia_Accion": 21.10, "Libros_Accion": 60.20},
-        {"Ticker": "TSLA", "Precio_Arg": 255.40, "Ganancia_Accion": 3.45, "Libros_Accion": 22.10},
-
-        # --- USA: VISTA & OTROS LÍDERES ---
-        {"Ticker": "VIST", "Precio_Arg": 55.40, "Ganancia_Accion": 5.80, "Libros_Accion": 18.50},
-        {"Ticker": "BRK-B", "Precio_Arg": 475.20, "Ganancia_Accion": 18.50, "Libros_Accion": 265.40},
-        {"Ticker": "LLY", "Precio_Arg": 890.10, "Ganancia_Accion": 14.20, "Libros_Accion": 15.30},
-        {"Ticker": "AVGO", "Precio_Arg": 175.40, "Ganancia_Accion": 4.55, "Libros_Accion": 16.20},
-        {"Ticker": "JPM", "Precio_Arg": 220.15, "Ganancia_Accion": 16.40, "Libros_Accion": 108.30},
-        {"Ticker": "V", "Precio_Arg": 310.45, "Ganancia_Accion": 9.90, "Libros_Accion": 18.40},
-        {"Ticker": "UNH", "Precio_Arg": 540.30, "Ganancia_Accion": 25.10, "Libros_Accion": 105.20},
-        {"Ticker": "MA", "Precio_Arg": 510.20, "Ganancia_Accion": 13.20, "Libros_Accion": 8.40},
-        {"Ticker": "XOM", "Precio_Arg": 112.40, "Ganancia_Accion": 9.20, "Libros_Accion": 52.15},
-        {"Ticker": "COST", "Precio_Arg": 920.10, "Ganancia_Accion": 16.30, "Libros_Accion": 45.20},
-        {"Ticker": "HD", "Precio_Arg": 410.50, "Ganancia_Accion": 15.10, "Libros_Accion": 4.20},
-        {"Ticker": "PG", "Precio_Arg": 172.30, "Ganancia_Accion": 6.60, "Libros_Accion": 19.80},
-        {"Ticker": "NFLX", "Precio_Arg": 820.40, "Ganancia_Accion": 19.20, "Libros_Accion": 50.10},
-        {"Ticker": "JNJ", "Precio_Arg": 160.50, "Ganancia_Accion": 10.10, "Libros_Accion": 30.25}
-    ]
-    st.session_state.df_quant = pd.DataFrame(datos)
-
-    # 2. EDITOR DE DATOS (Consola de Carga Manual)
-st.markdown("### 📥 1. Consola de Entrada de Datos")
-st.info("Modificá los Precios, Ganancias o Valor Libros en la tabla. El sistema recalculará los ratios al instante.")
-
-df_editado = st.data_editor(
-    st.session_state.df_quant, 
-    num_rows="dynamic", 
-    key="editor_valuacion_total",
-    use_container_width=True
-)
-
-# 3. LÓGICA DE CÁLCULO Y VALUACIÓN
-if df_editado is not None and not df_editado.empty:
-    
-    # Creamos df_calc para guardar los resultados de las fórmulas
-    df_calc = df_editado.copy()
-    
-    # Cálculos de ratios (Usando .replace para no romper por división por cero)
-    df_calc['PER'] = df_calc['Precio_Arg'] / df_calc['Ganancia_Accion'].replace(0, np.nan)
-    df_calc['P/B'] = df_calc['Precio_Arg'] / df_calc['Libros_Accion'].replace(0, np.nan)
-
-    # Definimos la función de lógica
-    def categorizar_valor(fila):
-        pb = fila['P/B']
-        ticker = str(fila['Ticker'])
-        tech_growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST']
-        
-        if pd.isna(pb): return "⚪ SIN DATOS"
+    # 1. BASE DE DATOS COMPLETA (31 ACTIVOS)
+    if 'df_quant' not in st.session_state:
+        datos_completos = [
+            # --- ARGENTINA ---
+            {"Ticker": "ALUA", "Precio_Arg": 950.0, "Ganancia_Accion": 142.1, "Libros_Accion": 980.5},
+            {"Ticker": "GGAL", "Precio_Arg": 5600.0, "Ganancia_Accion": 310.4, "Libros_Accion": 1350.2},
+            {"Ticker": "YPFD", "Precio_Arg": 28000.0, "Ganancia_Accion": 420.0, "Libros_Accion": 42000.0},
+            {"Ticker": "PAMP", "Precio_Arg": 3100.0, "Ganancia_Accion": 210.3, "Libros_Accion": 1680.0},
+            {"Ticker": "BMA", "Precio_Arg": 9200.0, "Ganancia_Accion": 450.2, "Libros_Accion": 2100.0},
+            {"Ticker": "BBAR", "Precio_Arg": 4800.0, "Ganancia_Accion": 220.5, "Libros_Accion": 1150.0},
+            {"Ticker": "CEPU", "Precio_Arg": 1250.0, "Ganancia_Accion": 115.0, "Libros_Accion": 1100.0},
+            {"Ticker": "TRAN", "Precio_Arg": 1850.0, "Ganancia_Accion": 95.0, "Libros_Accion": 850.0},
+            {"Ticker": "METR", "Precio_Arg": 1100.0, "Ganancia_Accion": 65.0, "Libros_Accion": 720.0},
             
-        if any(t in ticker for t in tech_growth):
-            # Lógica para NFLX/USA (Growth)
-            if pb < 15.0: return "🟢 OPORTUNIDAD"
-            elif pb <= 25.0: return "🟡 NEUTRO"
-            else: return "🔴 EXCESIVO"
-        else:
-            # Lógica para Argentina (Value)
-            if pb < 1.0: return "🟢 BARATO"
-            elif pb <= 2.2: return "🟡 NEUTRO"
+            # --- USA: LAS 7 MAGNÍFICAS ---
+            {"Ticker": "AAPL", "Precio_Arg": 242.10, "Ganancia_Accion": 6.57, "Libros_Accion": 4.83},
+            {"Ticker": "MSFT", "Precio_Arg": 415.20, "Ganancia_Accion": 11.80, "Libros_Accion": 34.20},
+            {"Ticker": "GOOGL", "Precio_Arg": 188.40, "Ganancia_Accion": 7.54, "Libros_Accion": 26.15},
+            {"Ticker": "AMZN", "Precio_Arg": 210.15, "Ganancia_Accion": 4.25, "Libros_Accion": 20.40},
+            {"Ticker": "NVDA", "Precio_Arg": 135.80, "Ganancia_Accion": 1.80, "Libros_Accion": 2.35},
+            {"Ticker": "META", "Precio_Arg": 580.30, "Ganancia_Accion": 21.10, "Libros_Accion": 60.20},
+            {"Ticker": "TSLA", "Precio_Arg": 255.40, "Ganancia_Accion": 3.45, "Libros_Accion": 22.10},
+
+            # --- USA: VISTA & TOP CAP ---
+            {"Ticker": "VIST", "Precio_Arg": 55.40, "Ganancia_Accion": 5.80, "Libros_Accion": 18.50},
+            {"Ticker": "NFLX", "Precio_Arg": 88.0, "Ganancia_Accion": 19.20, "Libros_Accion": 6.13},
+            {"Ticker": "BRK-B", "Precio_Arg": 475.20, "Ganancia_Accion": 18.50, "Libros_Accion": 265.40},
+            {"Ticker": "LLY", "Precio_Arg": 890.10, "Ganancia_Accion": 14.20, "Libros_Accion": 15.30},
+            {"Ticker": "AVGO", "Precio_Arg": 175.40, "Ganancia_Accion": 4.55, "Libros_Accion": 16.20},
+            {"Ticker": "JPM", "Precio_Arg": 220.15, "Ganancia_Accion": 16.40, "Libros_Accion": 108.30},
+            {"Ticker": "V", "Precio_Arg": 310.45, "Ganancia_Accion": 9.90, "Libros_Accion": 18.40},
+            {"Ticker": "UNH", "Precio_Arg": 540.30, "Ganancia_Accion": 25.10, "Libros_Accion": 105.20},
+            {"Ticker": "MA", "Precio_Arg": 510.20, "Ganancia_Accion": 13.20, "Libros_Accion": 8.40},
+            {"Ticker": "XOM", "Precio_Arg": 112.40, "Ganancia_Accion": 9.20, "Libros_Accion": 52.15},
+            {"Ticker": "COST", "Precio_Arg": 920.10, "Ganancia_Accion": 16.30, "Libros_Accion": 45.20},
+            {"Ticker": "HD", "Precio_Arg": 410.50, "Ganancia_Accion": 15.10, "Libros_Accion": 4.20},
+            {"Ticker": "PG", "Precio_Arg": 172.30, "Ganancia_Accion": 6.60, "Libros_Accion": 19.80},
+            {"Ticker": "JNJ", "Precio_Arg": 160.50, "Ganancia_Accion": 10.10, "Libros_Accion": 30.25}
+        ]
+        st.session_state.df_quant = pd.DataFrame(datos_completos)
+
+    # 2. EL EDITOR (Entrada)
+    df_editado = st.data_editor(
+        st.session_state.df_quant, 
+        num_rows="dynamic", 
+        key="editor_global_vFinal",
+        use_container_width=True
+    )
+
+    # 3. CÁLCULOS Y VISUALIZACIÓN (Salida)
+    if df_editado is not None and not df_editado.empty:
+        df_calc = df_editado.copy()
+        
+        # Ratios con reemplazo de ceros para evitar errores
+        df_calc['PER'] = df_calc['Precio_Arg'] / df_calc['Ganancia_Accion'].replace(0, np.nan)
+        df_calc['P/B'] = df_calc['Precio_Arg'] / df_calc['Libros_Accion'].replace(0, np.nan)
+
+        def categorizar(fila):
+            pb = fila['P/B']
+            t = str(fila['Ticker'])
+            # Lista de tecnológicas y Vista (Growth)
+            growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST', 'AVGO']
+            
+            if pd.isna(pb): return "⚪ SIN DATOS"
+            
+            # Tesis Gorostiaga: Growth tolera PB hasta 15x, Argentina solo hasta 1x
+            umbral = 15.0 if any(x in t for x in growth) else 1.0
+            
+            if pb < umbral: return "🟢 OPORTUNIDAD"
+            elif pb <= (umbral * 2.5): return "🟡 NEUTRO"
             else: return "🔴 CARO"
 
-    # Aplicamos la función a df_calc
-    df_calc['Valuacion'] = df_calc.apply(categorizar_valor, axis=1)
+        df_calc['Valuacion'] = df_calc.apply(categorizar, axis=1)
 
-    # --- VISUALIZACIÓN FINAL (AQUÍ ESTABA EL ERROR) ---
-    st.markdown("---")
-    st.subheader("📊 2. Matriz de Valuación Gorostiaga")
-    
-    # Definimos los formatos solo para las columnas que REALMENTE están en df_calc
-    formatos = {
-        'Precio_Arg': '${:,.2f}',
-        'PER': '{:.1f}x',
-        'P/B': '{:.2f}x'
-    }
+        st.markdown("---")
+        st.subheader("📊 Matriz de Valuación Resultante")
+        
+        # Seleccionamos columnas finales para evitar KeyError en el estilo
+        columnas_finales = ['Ticker', 'Precio_Arg', 'PER', 'P/B', 'Valuacion']
+        df_ver = df_calc[columnas_finales]
 
-    # IMPORTANTE: Usamos df_calc.style, NO df_editado.style
-    st.dataframe(
-        df_calc.style.format(formatos).map(
-            lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "🟢" in str(x) else 
-                      ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "🔴" in str(x) else ''),
-            subset=['Valuacion']
-        ),
-        use_container_width=True, 
-        hide_index=True
-    )
+        st.dataframe(
+            df_ver.style.format({
+                'Precio_Arg': '${:,.2f}',
+                'PER': '{:.1f}x',
+                'P/B': '{:.2f}x'
+            }).map(
+                lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "🟢" in str(x) else 
+                          ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "🔴" in str(x) else ''),
+                subset=['Valuacion']
+            ),
+            use_container_width=True, 
+            hide_index=True
+        )
     
     # 
 
@@ -779,6 +768,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
