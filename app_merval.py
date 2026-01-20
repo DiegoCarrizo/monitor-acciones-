@@ -105,13 +105,21 @@ if not df_editado.empty:
     
     # Función de Valuación (Ajustada: USA suele tener múltiplos más altos)
     def categorizar_valor(fila):
-        pb = fila['P/B']
-        ticker = fila['Ticker']
-        # Lógica especial para Tech USA o Vista (crecimiento)
-        umbral_barato = 1.2 if ticker in ['VIST', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA'] else 1.0
-        
-        if pb < umbral_barato: return "🟢 BARATO"
-        elif pb <= 2.5: return "🟡 NEUTRO"
+    pb = fila['P/B']
+    ticker = str(fila['Ticker'])
+    
+    # Lista de tickers que no se valúan por 'fierros' (activos físicos)
+    tech_growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST']
+    
+    # Si es tecnológica, el umbral de 'Barato' sube, porque valen por sus ganancias
+    if any(t in ticker for t in tech_growth):
+        if pb < 15.0: return "🟢 OPORTUNIDAD (GROWTH)" # NFLX con 14x califica aquí
+        elif pb <= 25.0: return "🟡 NEUTRO"
+        else: return "🔴 EXCESIVO"
+    else:
+        # Lógica estricta para Argentina (Industriales/Bancos)
+        if pb < 1.0: return "🟢 BARATO"
+        elif pb <= 2.2: return "🟡 NEUTRO"
         else: return "🔴 CARO"
     
     df_editado['Valuacion'] = df_editado.apply(categorizar_valor, axis=1)
@@ -747,6 +755,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
