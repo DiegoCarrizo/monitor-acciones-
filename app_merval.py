@@ -139,10 +139,14 @@ with tab1:
             hide_index=True
         )
 
-    # 5. RESUMEN DE OPORTUNIDADES
-    acciones_baratas = df_editado[df_editado['Valuacion'] == "🟢 BARATO"]['Ticker'].tolist()
-    if acciones_baratas:
-        st.success(f"**Oportunidades Detectadas (P/B bajo):** {', '.join(acciones_baratas)}")
+    # 5. RESUMEN DE OPORTUNIDADES (CORREGIDO)
+        # Usamos df_res porque es el que tiene la columna 'Valuacion'
+        oportunidades = df_res[df_res['Valuacion'] == "🟢 OPORTUNIDAD"]['Ticker'].tolist()
+        
+        if oportunidades:
+            st.success(f"🚀 **Oportunidades de Compra Detectadas:** {', '.join(oportunidades)}")
+        else:
+            st.info("No se detectaron activos en zona de oportunidad con los precios actuales.")
 
     # 5. GLOSARIO RÁPIDO
     
@@ -775,6 +779,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
