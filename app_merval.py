@@ -105,19 +105,20 @@ if not df_editado.empty:
     
     # Función de Valuación (Ajustada: USA suele tener múltiplos más altos)
     def categorizar_valor(fila):
+    # Estas líneas DEBEN tener 4 espacios de sangría respecto al 'def'
     pb = fila['P/B']
     ticker = str(fila['Ticker'])
     
-    # Lista de tickers que no se valúan por 'fierros' (activos físicos)
+    # Lista de activos que se valúan por crecimiento (Growth) y no por activos físicos
     tech_growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST']
     
-    # Si es tecnológica, el umbral de 'Barato' sube, porque valen por sus ganancias
     if any(t in ticker for t in tech_growth):
-        if pb < 15.0: return "🟢 OPORTUNIDAD (GROWTH)" # NFLX con 14x califica aquí
+        # Umbral más alto para tecnológicas (como tu análisis de NFLX)
+        if pb < 15.0: return "🟢 OPORTUNIDAD" 
         elif pb <= 25.0: return "🟡 NEUTRO"
         else: return "🔴 EXCESIVO"
     else:
-        # Lógica estricta para Argentina (Industriales/Bancos)
+        # Lógica estricta para Argentina (Valor Contable)
         if pb < 1.0: return "🟢 BARATO"
         elif pb <= 2.2: return "🟡 NEUTRO"
         else: return "🔴 CARO"
@@ -755,6 +756,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
