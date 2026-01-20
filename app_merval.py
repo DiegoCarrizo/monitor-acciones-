@@ -53,7 +53,12 @@ with tab1:
             {"Ticker": "YPFD", "Precio_Arg": 28000.0, "Ganancia_Accion": 420.0, "Libros_Accion": 42000.0},
             {"Ticker": "PAMP", "Precio_Arg": 3100.0, "Ganancia_Accion": 210.3, "Libros_Accion": 1680.0},
             {"Ticker": "AAPL", "Precio_Arg": 185.0, "Ganancia_Accion": 6.57, "Libros_Accion": 4.83}
-            {"Ticker": "NFLX", "Precio_NY": 88,49, "Ganancia_Accion": 0,55, "Libros_Accion": 11,97}
+            # Ejemplo de carga correcta para activos de NY
+datos_ny = [
+    {"Ticker": "NFLX", "Precio_NY": 88.49, "Ganancia_Accion": 0.55, "Libros_Accion": 11.97},
+    {"Ticker": "MELI", "Precio_NY": 1845.20, "Ganancia_Accion": 35.10, "Libros_Accion": 150.40},
+    {"Ticker": "TSLA", "Precio_NY": 215.30, "Ganancia_Accion": 3.20, "Libros_Accion": 21.15}
+]
         ]
         st.session_state.df_quant = pd.DataFrame(datos)
 
@@ -700,6 +705,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
