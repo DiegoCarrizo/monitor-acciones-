@@ -44,23 +44,46 @@ with tab1:
     st.subheader("🏛️ Consola de Valuación Gorostiaga")
     st.info("Ingresá los datos manualmente en la tabla. El sistema calculará automáticamente el PER, P/B y la Valuación.")
 
-    # 1. DEFINICIÓN DE DATOS INICIALES
-    if 'df_quant' not in st.session_state:
-        # Creamos un DataFrame inicial con ejemplos
-        datos = [
-            {"Ticker": "ALUA", "Precio_Arg": 950.0, "Ganancia_Accion": 142.1, "Libros_Accion": 980.5},
-            {"Ticker": "GGAL", "Precio_Arg": 5600.0, "Ganancia_Accion": 310.4, "Libros_Accion": 1350.2},
-            {"Ticker": "YPFD", "Precio_Arg": 28000.0, "Ganancia_Accion": 420.0, "Libros_Accion": 42000.0},
-            {"Ticker": "PAMP", "Precio_Arg": 3100.0, "Ganancia_Accion": 210.3, "Libros_Accion": 1680.0},
-            {"Ticker": "AAPL", "Precio_Arg": 185.0, "Ganancia_Accion": 6.57, "Libros_Accion": 4.83}
-            # Ejemplo de carga correcta para activos de NY
-datos_ny = [
-    {"Ticker": "NFLX", "Precio_NY": 88.49, "Ganancia_Accion": 0.55, "Libros_Accion": 11.97},
-    {"Ticker": "MELI", "Precio_NY": 1845.20, "Ganancia_Accion": 35.10, "Libros_Accion": 150.40},
-    {"Ticker": "TSLA", "Precio_NY": 215.30, "Ganancia_Accion": 3.20, "Libros_Accion": 21.15}
-]
-        ]
-        st.session_state.df_quant = pd.DataFrame(datos)
+    # 1. DEFINICIÓN DE DATOS INICIALES (Incluye nuevas de AR y Vista)
+if 'df_quant' not in st.session_state:
+    datos = [
+        # --- ARGENTINA (Principales + Nuevas incorporaciones) ---
+        {"Ticker": "ALUA", "Precio_Arg": 950.0, "Ganancia_Accion": 142.1, "Libros_Accion": 980.5},
+        {"Ticker": "GGAL", "Precio_Arg": 5600.0, "Ganancia_Accion": 310.4, "Libros_Accion": 1350.2},
+        {"Ticker": "YPFD", "Precio_Arg": 28000.0, "Ganancia_Accion": 420.0, "Libros_Accion": 42000.0},
+        {"Ticker": "PAMP", "Precio_Arg": 3100.0, "Ganancia_Accion": 210.3, "Libros_Accion": 1680.0},
+        {"Ticker": "BMA", "Precio_Arg": 9200.0, "Ganancia_Accion": 450.2, "Libros_Accion": 2100.0},
+        {"Ticker": "BBAR", "Precio_Arg": 4800.0, "Ganancia_Accion": 220.5, "Libros_Accion": 1150.0},
+        {"Ticker": "CEPU", "Precio_Arg": 1250.0, "Ganancia_Accion": 115.0, "Libros_Accion": 1100.0},
+        {"Ticker": "TRAN", "Precio_Arg": 1850.0, "Ganancia_Accion": 95.0, "Libros_Accion": 850.0},
+        {"Ticker": "METR", "Precio_Arg": 1100.0, "Ganancia_Accion": 65.0, "Libros_Accion": 720.0},
+        
+        # --- USA: LAS 7 MAGNÍFICAS ---
+        {"Ticker": "AAPL", "Precio_Arg": 242.10, "Ganancia_Accion": 6.57, "Libros_Accion": 4.83},
+        {"Ticker": "MSFT", "Precio_Arg": 415.20, "Ganancia_Accion": 11.80, "Libros_Accion": 34.20},
+        {"Ticker": "GOOGL", "Precio_Arg": 188.40, "Ganancia_Accion": 7.54, "Libros_Accion": 26.15},
+        {"Ticker": "AMZN", "Precio_Arg": 210.15, "Ganancia_Accion": 4.25, "Libros_Accion": 20.40},
+        {"Ticker": "NVDA", "Precio_Arg": 135.80, "Ganancia_Accion": 1.80, "Libros_Accion": 2.35},
+        {"Ticker": "META", "Precio_Arg": 580.30, "Ganancia_Accion": 21.10, "Libros_Accion": 60.20},
+        {"Ticker": "TSLA", "Precio_Arg": 255.40, "Ganancia_Accion": 3.45, "Libros_Accion": 22.10},
+
+        # --- USA: VISTA & OTROS LÍDERES ---
+        {"Ticker": "VIST", "Precio_Arg": 55.40, "Ganancia_Accion": 5.80, "Libros_Accion": 18.50},
+        {"Ticker": "BRK-B", "Precio_Arg": 475.20, "Ganancia_Accion": 18.50, "Libros_Accion": 265.40},
+        {"Ticker": "LLY", "Precio_Arg": 890.10, "Ganancia_Accion": 14.20, "Libros_Accion": 15.30},
+        {"Ticker": "AVGO", "Precio_Arg": 175.40, "Ganancia_Accion": 4.55, "Libros_Accion": 16.20},
+        {"Ticker": "JPM", "Precio_Arg": 220.15, "Ganancia_Accion": 16.40, "Libros_Accion": 108.30},
+        {"Ticker": "V", "Precio_Arg": 310.45, "Ganancia_Accion": 9.90, "Libros_Accion": 18.40},
+        {"Ticker": "UNH", "Precio_Arg": 540.30, "Ganancia_Accion": 25.10, "Libros_Accion": 105.20},
+        {"Ticker": "MA", "Precio_Arg": 510.20, "Ganancia_Accion": 13.20, "Libros_Accion": 8.40},
+        {"Ticker": "XOM", "Precio_Arg": 112.40, "Ganancia_Accion": 9.20, "Libros_Accion": 52.15},
+        {"Ticker": "COST", "Precio_Arg": 920.10, "Ganancia_Accion": 16.30, "Libros_Accion": 45.20},
+        {"Ticker": "HD", "Precio_Arg": 410.50, "Ganancia_Accion": 15.10, "Libros_Accion": 4.20},
+        {"Ticker": "PG", "Precio_Arg": 172.30, "Ganancia_Accion": 6.60, "Libros_Accion": 19.80},
+        {"Ticker": "NFLX", "Precio_Arg": 820.40, "Ganancia_Accion": 19.20, "Libros_Accion": 50.10},
+        {"Ticker": "JNJ", "Precio_Arg": 160.50, "Ganancia_Accion": 10.10, "Libros_Accion": 30.25}
+    ]
+    st.session_state.df_quant = pd.DataFrame(datos)
 
     # 2. EDITOR DE DATOS (Aquí sucede la magia)
     # El usuario edita Precio, Ganancia o Libros y el resto se calcula
@@ -705,6 +728,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
