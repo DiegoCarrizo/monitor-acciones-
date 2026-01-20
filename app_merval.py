@@ -97,73 +97,52 @@ df_editado = st.data_editor(
     use_container_width=True
 )
 
-# 3. LÓGICA DE CÁLCULO Y VALUACIÓN (Todo dentro de un solo bloque IF)
+# 3. LÓGICA DE CÁLCULO Y VALUACIÓN
 if df_editado is not None and not df_editado.empty:
     
-    # Definimos df_calc para procesar los resultados
+    # Creamos df_calc para guardar los resultados de las fórmulas
     df_calc = df_editado.copy()
     
-    # Evitamos división por cero o valores nulos usando NumPy
+    # Cálculos de ratios (Usando .replace para no romper por división por cero)
     df_calc['PER'] = df_calc['Precio_Arg'] / df_calc['Ganancia_Accion'].replace(0, np.nan)
     df_calc['P/B'] = df_calc['Precio_Arg'] / df_calc['Libros_Accion'].replace(0, np.nan)
 
-    # Definimos la función de lógica de inversión
+    # Definimos la función de lógica
     def categorizar_valor(fila):
         pb = fila['P/B']
         ticker = str(fila['Ticker'])
-        
-        # Lista de activos Growth (USA + VIST)
         tech_growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST']
         
-        if pd.isna(pb): 
-            return "⚪ SIN DATOS"
+        if pd.isna(pb): return "⚪ SIN DATOS"
             
         if any(t in ticker for t in tech_growth):
-            # Análisis para NFLX y tecnológicas: PB 14.3x es OPORTUNIDAD
+            # Lógica para NFLX/USA (Growth)
             if pb < 15.0: return "🟢 OPORTUNIDAD"
             elif pb <= 25.0: return "🟡 NEUTRO"
             else: return "🔴 EXCESIVO"
         else:
-            # Lógica para Argentina (Value / Fierros)
+            # Lógica para Argentina (Value)
             if pb < 1.0: return "🟢 BARATO"
             elif pb <= 2.2: return "🟡 NEUTRO"
             else: return "🔴 CARO"
 
-    # Aplicamos la función a la nueva columna
+    # Aplicamos la función a df_calc
     df_calc['Valuacion'] = df_calc.apply(categorizar_valor, axis=1)
 
-    # --- MOSTRAR LA TABLA FINAL FORMATEADA ---
+    # --- VISUALIZACIÓN FINAL (AQUÍ ESTABA EL ERROR) ---
     st.markdown("---")
     st.subheader("📊 2. Matriz de Valuación Gorostiaga")
     
-    # Formateo de columnas para que se vea profesional
-    columnas_format = {
+    # Definimos los formatos solo para las columnas que REALMENTE están en df_calc
+    formatos = {
         'Precio_Arg': '${:,.2f}',
         'PER': '{:.1f}x',
         'P/B': '{:.2f}x'
     }
-    
-    # Solo aplicamos formato a las columnas que existen
-    formatos_finales = {k: v for k, v in columnas_format.items() if k in df_calc.columns}
 
+    # IMPORTANTE: Usamos df_calc.style, NO df_editado.style
     st.dataframe(
-        df_calc.style.format(formatos_finales).map(
-            lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "🟢" in str(x) else 
-                      ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "🔴" in str(x) else ''),
-            subset=['Valuacion']
-        ),
-        use_container_width=True, 
-        hide_index=True
-    )
-
-    # 4. Mostrar la tabla resultante
-    st.subheader("📊 Matriz de Valuación Gorostiaga")
-    st.dataframe(
-        df_calc.style.format({
-            'Precio_Arg': '${:,.2f}',
-            'PER': '{:.1f}x',
-            'P/B': '{:.2f}x'
-        }).map(
+        df_calc.style.format(formatos).map(
             lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "🟢" in str(x) else 
                       ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "🔴" in str(x) else ''),
             subset=['Valuacion']
@@ -800,6 +779,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
