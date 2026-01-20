@@ -103,40 +103,56 @@ if not df_editado.empty:
     df_editado['PER'] = df_editado['Precio_Arg'] / df_editado['Ganancia_Accion'].replace(0, np.nan)
     df_editado['P/B'] = df_editado['Precio_Arg'] / df_editado['Libros_Accion'].replace(0, np.nan)
     
-    # Función de Valuación (Ajustada: USA suele tener múltiplos más altos)
-    # Esta es la función que estaba fallando por los espacios
+   # 1. Asegúrate de que df_editado tenga los datos del editor
+if df_editado is not None and not df_editado.empty:
+    
+    # Definimos df_calc AQUÍ mismo para que no de NameError
+    df_calc = df_editado.copy()
+    
+    # Cálculos de ratios
+    df_calc['PER'] = df_calc['Precio_Arg'] / df_calc['Ganancia_Accion'].replace(0, np.nan)
+    df_calc['P/B'] = df_calc['Precio_Arg'] / df_calc['Libros_Accion'].replace(0, np.nan)
+
+    # 2. Definimos la función DENTRO del bloque if
     def categorizar_valor(fila):
-        # Todo este bloque debe tener 4 espacios de sangría (1 Tab)
         pb = fila['P/B']
         ticker = str(fila['Ticker'])
         
-        # Lista de activos que se valúan por crecimiento (Growth)
+        # Lista de activos Growth (USA + VIST)
         tech_growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST']
         
+        if pd.isna(pb): 
+            return "⚪ SIN DATOS"
+            
         if any(t in ticker for t in tech_growth):
-            # Lógica para USA/Growth (NFLX entra aquí con su P/B de 14.3x)
-            if pb < 15.0: 
-                return "🟢 OPORTUNIDAD" 
-            elif pb <= 25.0: 
-                return "🟡 NEUTRO"
-            else: 
-                return "🔴 EXCESIVO"
+            # Tu análisis de NFLX: a 88 USD con PB 14.3x es OPORTUNIDAD
+            if pb < 15.0: return "🟢 OPORTUNIDAD"
+            elif pb <= 25.0: return "🟡 NEUTRO"
+            else: return "🔴 EXCESIVO"
         else:
-            # Lógica para Argentina/Value
-            if pb < 1.0: 
-                return "🟢 BARATO"
-            elif pb <= 2.2: 
-                return "🟡 NEUTRO"
-            else: 
-                return "🔴 CARO"
+            # Lógica para Argentina (Value)
+            if pb < 1.0: return "🟢 BARATO"
+            elif pb <= 2.2: return "🟡 NEUTRO"
+            else: return "🔴 CARO"
 
-    # Esta línea vuelve al nivel anterior (fuera de la función)
+    # 3. AHORA aplicamos la función (df_calc ya existe en esta línea)
     df_calc['Valuacion'] = df_calc.apply(categorizar_valor, axis=1)
-    
-    df_editado['Valuacion'] = df_editado.apply(categorizar_valor, axis=1)
 
-    st.markdown("---")
-    st.subheader("📊 2. Matriz de Valuación Resultante")
+    # 4. Mostrar la tabla resultante
+    st.subheader("📊 Matriz de Valuación Gorostiaga")
+    st.dataframe(
+        df_calc.style.format({
+            'Precio_Arg': '${:,.2f}',
+            'PER': '{:.1f}x',
+            'P/B': '{:.2f}x'
+        }).map(
+            lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "🟢" in str(x) else 
+                      ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "🔴" in str(x) else ''),
+            subset=['Valuacion']
+        ),
+        use_container_width=True, 
+        hide_index=True
+    )
     
     # 
 
@@ -766,6 +782,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
