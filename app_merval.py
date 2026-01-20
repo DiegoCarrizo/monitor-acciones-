@@ -103,19 +103,32 @@ if df_editado is not None and not df_editado.empty:
     # Función de Valuación
     def categorizar(fila):
         pb = fila['P/B']
-        t = str(fila['Ticker'])
-        growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST', 'AVGO']
+        t = str(fila['Ticker']).upper()
+        
+        # DEFINICIÓN DE SECTORES
+        # Agrupamos todas las tecnológicas, semiconductores y growth
+        tecnologicas = [
+            'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 
+            'NFLX', 'AVGO', 'VIST', 'MA', 'V', 'CRM', 'AMD'
+        ]
+        
         if pd.isna(pb): return "⚪ SIN DATOS"
         
-        # Umbral para NFLX y tech es 15.0, para Argentina es 1.0
-        umbral = 15.0 if any(x in t for x in growth) else 1.0
-        
-        if pb < umbral: return "🟢 OPORTUNIDAD"
-        elif pb <= (umbral * 2.5): return "🟡 NEUTRO"
-        else: return "🔴 CARO"
+        # APLICACIÓN DE LÓGICA POR SECTOR
+        if any(tec in t for tec in tecnologicas):
+            # Lógica Tecnológica: El mercado convalida múltiplos altos.
+            # Un P/B de 14x (como el de NFLX) es sano para el sector.
+            if pb < 15.0: return "🟢 OPORTUNIDAD"
+            elif pb <= 28.0: return "🟡 NEUTRO"
+            else: return "🔴 EXCESIVO"
+        else:
+            # Lógica Argentina / Valor Tradicional (Bancos, Energía, Industria):
+            # Se valúan por "fierros" o patrimonio neto real.
+            if pb < 1.1: return "🟢 BARATO"
+            elif pb <= 2.5: return "🟡 NEUTRO"
+            else: return "🔴 CARO"
 
     df_calc['Valuacion'] = df_calc.apply(categorizar, axis=1)
-
     # --- VISUALIZACIÓN (Debe estar indentada para ver a df_calc) ---
     st.markdown("---")
     st.subheader("📊 Matriz de Valuación Gorostiaga")
@@ -774,6 +787,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
