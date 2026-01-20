@@ -43,9 +43,8 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Acciones", "📉 inflación 2026",
 
 with tab1:
     st.subheader("🏛️ Terminal de Valuación Global")
-    st.info("Editá Precios, Ganancias o Libros. El sistema aplicará lógica diferenciada para Argentina y USA.")
 
-    # 1. BASE DE DATOS COMPLETA (31 ACTIVOS)
+    # 1. BASE DE DATOS INICIAL (31 ACTIVOS)
     if 'df_quant' not in st.session_state:
         datos_completos = [
             # --- ARGENTINA ---
@@ -58,8 +57,7 @@ with tab1:
             {"Ticker": "CEPU", "Precio_Arg": 1250.0, "Ganancia_Accion": 115.0, "Libros_Accion": 1100.0},
             {"Ticker": "TRAN", "Precio_Arg": 1850.0, "Ganancia_Accion": 95.0, "Libros_Accion": 850.0},
             {"Ticker": "METR", "Precio_Arg": 1100.0, "Ganancia_Accion": 65.0, "Libros_Accion": 720.0},
-            
-            # --- USA: LAS 7 MAGNÍFICAS ---
+            # --- USA: 7 MAGNÍFICAS + VIST + NFLX ---
             {"Ticker": "AAPL", "Precio_Arg": 242.10, "Ganancia_Accion": 6.57, "Libros_Accion": 4.83},
             {"Ticker": "MSFT", "Precio_Arg": 415.20, "Ganancia_Accion": 11.80, "Libros_Accion": 34.20},
             {"Ticker": "GOOGL", "Precio_Arg": 188.40, "Ganancia_Accion": 7.54, "Libros_Accion": 26.15},
@@ -67,10 +65,9 @@ with tab1:
             {"Ticker": "NVDA", "Precio_Arg": 135.80, "Ganancia_Accion": 1.80, "Libros_Accion": 2.35},
             {"Ticker": "META", "Precio_Arg": 580.30, "Ganancia_Accion": 21.10, "Libros_Accion": 60.20},
             {"Ticker": "TSLA", "Precio_Arg": 255.40, "Ganancia_Accion": 3.45, "Libros_Accion": 22.10},
-
-            # --- USA: VISTA & TOP CAP ---
             {"Ticker": "VIST", "Precio_Arg": 55.40, "Ganancia_Accion": 5.80, "Libros_Accion": 18.50},
             {"Ticker": "NFLX", "Precio_Arg": 88.0, "Ganancia_Accion": 19.20, "Libros_Accion": 6.13},
+            # --- OTROS USA ---
             {"Ticker": "BRK-B", "Precio_Arg": 475.20, "Ganancia_Accion": 18.50, "Libros_Accion": 265.40},
             {"Ticker": "LLY", "Precio_Arg": 890.10, "Ganancia_Accion": 14.20, "Libros_Accion": 15.30},
             {"Ticker": "AVGO", "Precio_Arg": 175.40, "Ganancia_Accion": 4.55, "Libros_Accion": 16.20},
@@ -86,58 +83,46 @@ with tab1:
         ]
         st.session_state.df_quant = pd.DataFrame(datos_completos)
 
-    # 2. EL EDITOR (Entrada)
-    df_editado = st.data_editor(
-        st.session_state.df_quant, 
-        num_rows="dynamic", 
-        key="editor_global_vFinal",
-        use_container_width=True
-    )
+    # 2. EL EDITOR (Entrada de datos)
+    df_editado = st.data_editor(st.session_state.df_quant, num_rows="dynamic", key="editor_global", use_container_width=True)
 
-    # 3. CÁLCULOS Y VISUALIZACIÓN (Salida)
+    # 3. LÓGICA DE CÁLCULO
     if df_editado is not None and not df_editado.empty:
         df_calc = df_editado.copy()
-        
-        # Ratios con reemplazo de ceros para evitar errores
         df_calc['PER'] = df_calc['Precio_Arg'] / df_calc['Ganancia_Accion'].replace(0, np.nan)
         df_calc['P/B'] = df_calc['Precio_Arg'] / df_calc['Libros_Accion'].replace(0, np.nan)
 
         def categorizar(fila):
             pb = fila['P/B']
             t = str(fila['Ticker'])
-            # Lista de tecnológicas y Vista (Growth)
-            growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST', 'AVGO']
-            
+            growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST']
             if pd.isna(pb): return "⚪ SIN DATOS"
-            
-            # Tesis Gorostiaga: Growth tolera PB hasta 15x, Argentina solo hasta 1x
             umbral = 15.0 if any(x in t for x in growth) else 1.0
-            
             if pb < umbral: return "🟢 OPORTUNIDAD"
             elif pb <= (umbral * 2.5): return "🟡 NEUTRO"
             else: return "🔴 CARO"
 
         df_calc['Valuacion'] = df_calc.apply(categorizar, axis=1)
 
+        # 4. VISUALIZACIÓN FINAL (AQUÍ SE CORRIGE EL KEYERROR)
         st.markdown("---")
         st.subheader("📊 Matriz de Valuación Resultante")
         
-        # Seleccionamos columnas finales para evitar KeyError en el estilo
-        columnas_finales = ['Ticker', 'Precio_Arg', 'PER', 'P/B', 'Valuacion']
-        df_ver = df_calc[columnas_finales]
+        # Filtramos solo las columnas que queremos mostrar
+        cols_mostrar = ['Ticker', 'Precio_Arg', 'PER', 'P/B', 'Valuacion']
+        df_final = df_calc[[c for c in cols_mostrar if c in df_calc.columns]]
 
         st.dataframe(
-            df_ver.style.format({
+            df_final.style.format({
                 'Precio_Arg': '${:,.2f}',
                 'PER': '{:.1f}x',
                 'P/B': '{:.2f}x'
             }).map(
                 lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "🟢" in str(x) else 
                           ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "🔴" in str(x) else ''),
-                subset=['Valuacion']
+                subset=['Valuacion'] if 'Valuacion' in df_final.columns else []
             ),
-            use_container_width=True, 
-            hide_index=True
+            use_container_width=True, hide_index=True
         )
     
     # 
@@ -795,6 +780,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
