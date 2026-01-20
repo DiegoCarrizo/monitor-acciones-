@@ -194,6 +194,33 @@ with tab1:
         </div>
         """
         st.components.v1.html(tv_html, height=380)
+# --- MOSTRAR LA TABLA FINAL (UBICACIÓN: AL FINAL DEL BLOQUE 'if df_editado...') ---
+    st.markdown("---")
+    st.subheader("📊 Matriz de Valuación Gorostiaga")
+    
+    # 1. Definimos las columnas que queremos mostrar
+    columnas_deseadas = ['Ticker', 'Precio_Arg', 'PER', 'P/B', 'Valuacion']
+    
+    # 2. Filtramos solo las que realmente existen en df_calc para evitar el KeyError
+    columnas_existentes = [c for c in columnas_deseadas if c in df_calc.columns]
+    df_final = df_calc[columnas_existentes]
+
+    # 3. Definimos formatos solo para las columnas numéricas que están presentes
+    formatos_dict = {}
+    if 'Precio_Arg' in df_final.columns: formatos_dict['Precio_Arg'] = '${:,.2f}'
+    if 'PER' in df_final.columns: formatos_dict['PER'] = '{:.1f}x'
+    if 'P/B' in df_final.columns: formatos_dict['P/B'] = '{:.2f}x'
+
+    # 4. Renderizado con validación de columna de estilo
+    st.dataframe(
+        df_final.style.format(formatos_dict).map(
+            lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "🟢" in str(x) else 
+                      ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "🔴" in str(x) else ''),
+            subset=['Valuacion'] if 'Valuacion' in df_final.columns else []
+        ),
+        use_container_width=True, 
+        hide_index=True
+    )
         
 # --- PESTAÑA 2: INFLACIÓN (LA GRÁFICA COMPLEJA) ---
 with tab2:
@@ -768,6 +795,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
