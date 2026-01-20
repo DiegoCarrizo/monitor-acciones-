@@ -83,70 +83,65 @@ with tab1:
         ]
         st.session_state.df_quant = pd.DataFrame(datos_completos)
 
-    # 2. EL EDITOR (Entrada de datos)
-    df_editado = st.data_editor(
-        st.session_state.df_quant, 
-        num_rows="dynamic", 
-        key="editor_global_final", 
-        use_container_width=True
+    # 2. EL EDITOR (Donde cargás los datos)
+df_editado = st.data_editor(
+    st.session_state.df_quant, 
+    num_rows="dynamic", 
+    key="editor_global_final", 
+    use_container_width=True
+)
+
+# 3. LÓGICA DE CÁLCULO Y TABLA DE RESULTADOS
+if df_editado is not None and not df_editado.empty:
+    # Creamos df_calc AQUÍ adentro
+    df_calc = df_editado.copy()
+    
+    # Ratios
+    df_calc['PER'] = df_calc['Precio_Arg'] / df_calc['Ganancia_Accion'].replace(0, np.nan)
+    df_calc['P/B'] = df_calc['Precio_Arg'] / df_calc['Libros_Accion'].replace(0, np.nan)
+
+    # Función de Valuación
+    def categorizar(fila):
+        pb = fila['P/B']
+        t = str(fila['Ticker'])
+        growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST', 'AVGO']
+        if pd.isna(pb): return "⚪ SIN DATOS"
+        
+        # Umbral para NFLX y tech es 15.0, para Argentina es 1.0
+        umbral = 15.0 if any(x in t for x in growth) else 1.0
+        
+        if pb < umbral: return "🟢 OPORTUNIDAD"
+        elif pb <= (umbral * 2.5): return "🟡 NEUTRO"
+        else: return "🔴 CARO"
+
+    df_calc['Valuacion'] = df_calc.apply(categorizar, axis=1)
+
+    # --- VISUALIZACIÓN (Debe estar indentada para ver a df_calc) ---
+    st.markdown("---")
+    st.subheader("📊 Matriz de Valuación Gorostiaga")
+    
+    columnas_deseadas = ['Ticker', 'Precio_Arg', 'PER', 'P/B', 'Valuacion']
+    # Esta línea ahora sí encontrará a df_calc porque está en el mismo bloque
+    columnas_visibles = [c for c in columnas_deseadas if c in df_calc.columns]
+
+    st.dataframe(
+        df_calc[columnas_visibles].style.format({
+            'Precio_Arg': '${:,.2f}',
+            'PER': '{:.1f}x',
+            'P/B': '{:.2f}x'
+        }).map(
+            lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "🟢" in str(x) else 
+                      ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "🔴" in str(x) else ''),
+            subset=['Valuacion']
+        ),
+        use_container_width=True, 
+        hide_index=True
     )
 
-    # 3. PROCESAMIENTO Y CÁLCULOS
-    if df_editado is not None and not df_editado.empty:
-        # Creamos una copia nueva para resultados, así no tocamos el editor
-        df_res = df_editado.copy()
-        
-        df_res['PER'] = df_res['Precio_Arg'] / df_res['Ganancia_Accion'].replace(0, np.nan)
-        df_res['P/B'] = df_res['Precio_Arg'] / df_res['Libros_Accion'].replace(0, np.nan)
-
-        def categorizar(fila):
-            pb = fila['P/B']
-            t = str(fila['Ticker'])
-            # Lista de tecnológicas que mencionaste + VIST
-            growth = ['NFLX', 'NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL', 'TSLA', 'VIST', 'AVGO']
-            
-            if pd.isna(pb): return "⚪ SIN DATOS"
-            
-            # Tu tesis: NFLX con PB 14x es OPORTUNIDAD
-            umbral = 15.0 if any(x in t for x in growth) else 1.0
-            
-            if pb < umbral: return "🟢 OPORTUNIDAD"
-            elif pb <= (umbral * 2.5): return "🟡 NEUTRO"
-            else: return "🔴 CARO"
-
-        df_res['Valuacion'] = df_res.apply(categorizar, axis=1)
-
-        # 4. VISUALIZACIÓN FINAL (USANDO df_res QUE SÍ TIENE LAS COLUMNAS)
-        st.markdown("---")
-        st.subheader("📊 Resultados del Análisis")
-        
-        # Seleccionamos las columnas para mostrar, evitando errores de Key
-        cols_finales = ['Ticker', 'Precio_Arg', 'PER', 'P/B', 'Valuacion']
-        # Filtramos solo las que realmente existen por seguridad
-        df_final = df_res[[c for c in cols_finales if c in df_res.columns]]
-
-        st.dataframe(
-            df_final.style.format({
-                'Precio_Arg': '${:,.2f}',
-                'PER': '{:.1f}x',
-                'P/B': '{:.2f}x'
-            }).map(
-                lambda x: 'background-color: #1e4620; color: #adff2f; font-weight: bold' if "🟢" in str(x) else 
-                          ('background-color: #4a1c1c; color: #ffcccb; font-weight: bold' if "🔴" in str(x) else ''),
-                subset=['Valuacion']
-            ),
-            use_container_width=True, 
-            hide_index=True
-        )
-
-    # 5. RESUMEN DE OPORTUNIDADES (CORREGIDO)
-        # Usamos df_res porque es el que tiene la columna 'Valuacion'
-        oportunidades = df_res[df_res['Valuacion'] == "🟢 OPORTUNIDAD"]['Ticker'].tolist()
-        
-        if oportunidades:
-            st.success(f"🚀 **Oportunidades de Compra Detectadas:** {', '.join(oportunidades)}")
-        else:
-            st.info("No se detectaron activos en zona de oportunidad con los precios actuales.")
+    # Resumen de oportunidades (también dentro del if)
+    oportunidades = df_calc[df_calc['Valuacion'] == "🟢 OPORTUNIDAD"]['Ticker'].tolist()
+    if oportunidades:
+        st.success(f"🚀 **Oportunidades:** {', '.join(oportunidades)}")
 
     # 5. GLOSARIO RÁPIDO
     
@@ -779,6 +774,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
