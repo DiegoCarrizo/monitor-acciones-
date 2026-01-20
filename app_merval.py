@@ -4,6 +4,7 @@ import yfinance as yf
 import requests
 import plotly.graph_objects as go  # <--- Esto soluciona el NameError
 from datetime import datetime
+import numpy as np  # <-- ESTA ES LA LÍNEA QUE FALTA
 
 # --- CONFIGURACIÓN DE CABECERAS PARA EVITAR BLOQUEOS ---
 headers = {
@@ -746,6 +747,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
