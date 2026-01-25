@@ -3,6 +3,10 @@ pandas
 yfinance
 plotly
 requests
+streamlit-autorefresh
+
+
+
 
 
 
