@@ -5,8 +5,17 @@ import requests
 import plotly.graph_objects as go  # <--- Esto soluciona el NameError
 from datetime import datetime
 import numpy as np  # <-- ESTA ES LA LÍNEA QUE FALTA
-import streamlit as st
-import time
+# Refresco automático nativo (cada 60 segundos)
+st.markdown(
+    """
+    <script>
+    window.parent.location.reload();
+    </script>
+    """,
+    unsafe_allow_html=True
+)
+# Nota: Si lo usas en Streamlit Cloud, la opción más estable es la de abajo:
+st.markdown('<meta http-equiv="refresh" content="60">', unsafe_allow_html=True)
 
 # Script para refrescar la página automáticamente cada 60 segundos
 # Esto inserta un pequeño código HTML invisible que recarga la página
@@ -17,8 +26,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Se actualiza solo cada 60 segundos
-count = st_autorefresh(interval=60000, key="fizzbuzzcounter")
 
 # --- CONFIGURACIÓN DE CABECERAS PARA EVITAR BLOQUEOS ---
 headers = {
@@ -837,6 +844,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
