@@ -678,7 +678,7 @@ with tab5:
     # --- TABLA DE PROYECCIONES INDEPENDIENTE ---
 st.markdown("---")
 st.header("🚀 Proyecciones de Precios Objetivo (Targets 2026)")
-st.subheader("Análisis basado en Riesgo País 573 pb y Breakout del Merval")
+st.subheader("Análisis basado en Riesgo País 543 pb y Breakout del Merval")
 
 # 1. PARÁMETROS TÉCNICOS DEL ÍNDICE
 IMV_ACTUAL = 3076946
@@ -776,6 +776,35 @@ st.success("""
 **Nota Estratégica:** Esta proyección asume que el Merval mantiene la simetría de su canal alcista histórico. 
 Con un Riesgo País en **573 pb**, la probabilidad de alcanzar el **Escenario Bull** aumenta, ya que Argentina comienza a ser atractiva para fondos de mercados emergentes.
 """)
+import streamlit as st
+
+# Creamos pestañas para organizar el contenido
+tab1, tab2 = st.tabs(["📈 Monitor de Activos", "🏦 Tasas & Teoría del Amago"])
+
+with tab1:
+    st.write("Aquí va tu código actual de los 31 activos...")
+
+with tab2:
+    st.header("Monitor de Tasas: Arbitraje y Costo de Oportunidad")
+    
+    # Simulación de datos (Aquí conectarías con tu API de precios)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("T-Bill 3M (USA)", "4.85%", "TACO Trade")
+    col2.metric("Lecap S15D6", "42.0%", "ARS Bench")
+    col3.metric("Bopreal BP26", "18.5%", "Hard Dollar")
+
+    st.subheader("Análisis de la Teoría del Amago")
+    st.write("""
+    Este monitor mide el diferencial de tasas. Cuando el **Riesgo País** sube por un amago arancelario, 
+    la brecha entre la ON Argentina y el T-Bill se expande, señalando una ventana de compra.
+    """)
+    
+    # Aquí podés agregar una tabla con el estilo de tasas.ar
+    st.table({
+        "Instrumento": ["Plazo Fijo", "Caución 7d", "FCI Money Market", "Lecap"],
+        "TNA": ["37%", "35%", "34%", "42%"],
+        "Estado (Amago)": ["Neutral", "Liquidez para compra", "Neutral", "Oportunidad"]
+    })
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
 st.markdown(
@@ -787,6 +816,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
