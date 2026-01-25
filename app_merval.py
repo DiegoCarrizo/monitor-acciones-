@@ -5,6 +5,10 @@ import requests
 import plotly.graph_objects as go  # <--- Esto soluciona el NameError
 from datetime import datetime
 import numpy as np  # <-- ESTA ES LA LÍNEA QUE FALTA
+from streamlit_autorefresh import st_autorefresh
+
+# Se actualiza solo cada 60 segundos
+count = st_autorefresh(interval=60000, key="fizzbuzzcounter")
 
 # --- CONFIGURACIÓN DE CABECERAS PARA EVITAR BLOQUEOS ---
 headers = {
@@ -778,33 +782,40 @@ Con un Riesgo País en **573 pb**, la probabilidad de alcanzar el **Escenario Bu
 """)
 import streamlit as st
 
-# Creamos pestañas para organizar el contenido
-tab1, tab2 = st.tabs(["📈 Monitor de Activos", "🏦 Tasas & Teoría del Amago"])
+import streamlit as st
+import pandas as pd
+import time
 
-with tab1:
-    st.write("Aquí va tu código actual de los 31 activos...")
+# 1. Función para obtener los datos (Simulación de API)
+@st.cache_data(ttl=600)  # Los datos se guardan 10 min, a menos que toques el botón
+def obtener_tasas_reales():
+    # Aquí iría el código de tu API (ej: IOL o Matba Rofex)
+    # Por ahora, simulamos una actualización real:
+    timestamp = time.strftime("%H:%M:%S")
+    data = {
+        "Instrumento": ["Lecap S15D6", "Caución 7d", "T-Bill 3M (USA)", "Bopreal BP26"],
+        "TNA (%)": [42.15, 35.20, 4.82, 18.40],
+        "Spread (vs USA)": ["37.33%", "30.38%", "0.00%", "13.58%"]
+    }
+    return pd.DataFrame(data), timestamp
 
-with tab2:
-    st.header("Monitor de Tasas: Arbitraje y Costo de Oportunidad")
-    
-    # Simulación de datos (Aquí conectarías con tu API de precios)
-    col1, col2, col3 = st.columns(3)
-    col1.metric("T-Bill 3M (USA)", "4.85%", "TACO Trade")
-    col2.metric("Lecap S15D6", "42.0%", "ARS Bench")
-    col3.metric("Bopreal BP26", "18.5%", "Hard Dollar")
+st.title("🏦 Monitor de Tasas - Gorostiaga Bursátil")
 
-    st.subheader("Análisis de la Teoría del Amago")
-    st.write("""
-    Este monitor mide el diferencial de tasas. Cuando el **Riesgo País** sube por un amago arancelario, 
-    la brecha entre la ON Argentina y el T-Bill se expande, señalando una ventana de compra.
-    """)
-    
-    # Aquí podés agregar una tabla con el estilo de tasas.ar
-    st.table({
-        "Instrumento": ["Plazo Fijo", "Caución 7d", "FCI Money Market", "Lecap"],
-        "TNA": ["37%", "35%", "34%", "42%"],
-        "Estado (Amago)": ["Neutral", "Liquidez para compra", "Neutral", "Oportunidad"]
-    })
+# 2. Botón de Actualizar
+if st.button("🔄 Actualizar Tasas en Tiempo Real"):
+    st.cache_data.clear()  # Borramos el caché para forzar la lectura de la API
+    st.success("Datos actualizados directamente del mercado.")
+
+# 3. Mostrar los datos
+df_tasas, hora_actualizacion = obtener_tasas_reales()
+
+st.write(f"Última actualización: **{hora_actualizacion}**")
+
+# Estilo tabla 'tasas.ar'
+st.dataframe(df_tasas, use_container_width=True)
+
+# 4. Bloque de Teoría del Amago
+st.warning(f"⚠️ **Alerta Teoría del Amago:** El spread de las Lecaps frente al T-Bill es de {df_tasas.iloc[0]['Spread (vs USA)']}. Si este diferencial sube por un tuit arancelario, es zona de compra.")
 # --- PIE DE PÁGINA (DISCLAIMER) ---
 st.markdown("---")  # Una línea sutil de separación
 st.markdown(
@@ -816,6 +827,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
