@@ -5,7 +5,17 @@ import requests
 import plotly.graph_objects as go  # <--- Esto soluciona el NameError
 from datetime import datetime
 import numpy as np  # <-- ESTA ES LA LÍNEA QUE FALTA
-from streamlit_autorefresh import st_autorefresh
+import streamlit as st
+import time
+
+# Script para refrescar la página automáticamente cada 60 segundos
+# Esto inserta un pequeño código HTML invisible que recarga la página
+st.markdown(
+    """
+    <meta http-equiv="refresh" content="60">
+    """,
+    unsafe_allow_html=True
+)
 
 # Se actualiza solo cada 60 segundos
 count = st_autorefresh(interval=60000, key="fizzbuzzcounter")
@@ -827,6 +837,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
